@@ -14,7 +14,7 @@ import java.util.Map;
  * 原 4 张卡全摊一屏，挤且杂乱；后改为 Accordion 互斥展开，但「运动录入」与
  * 「今日运动记录」被「最近健康记录」隔开、且表压在最底，录完运动看不到结果。
  *
- * 现改为 4 个独立 TitledPane 顺序为：健康录入 → 运动录入 → 今日运动记录
+ * 现改为 4 个独立 TitledPane 顺序为：今日运动记录 → 健康录入 → 运动录入
  * → 最近健康记录，运动录入与结果相邻；保存运动后自动展开记录表，数据即时可见。
  * 字段排成两列减少展开高度。
  */
@@ -54,7 +54,7 @@ public class DataInputPanel extends VBox {
         tpTodayEx.setExpanded(false);
         tpLatest.setExpanded(false);
 
-        getChildren().addAll(tpHealth, tpExercise, tpTodayEx, tpLatest);
+        getChildren().addAll(tpTodayEx, tpHealth, tpExercise, tpLatest);
 
         refreshLatest();
         refreshExercise();
