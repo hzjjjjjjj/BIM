@@ -6,6 +6,7 @@ import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.collections.*;
+import javafx.concurrent.Task;
 
 import java.util.*;
 import java.util.Map;
@@ -18,6 +19,7 @@ public class AIChatPanel extends VBox {
     private final TextArea taAnswer = new TextArea();
     private final TextField tfQuestion = new TextField();
     private final TextField tfApiKey = new TextField();
+    private final Button btnSend;
 
     public AIChatPanel() {
         setSpacing(16);
@@ -38,7 +40,7 @@ public class AIChatPanel extends VBox {
         HBox input = new HBox(10);
         input.setAlignment(Pos.CENTER_LEFT);
         tfQuestion.setPrefWidth(420);
-        Button btnSend = new Button("发送提问");
+        btnSend = new Button("发送提问");
         btnSend.getStyleClass().add("button-primary");
         input.getChildren().addAll(tfQuestion, btnSend);
 
@@ -95,26 +97,49 @@ public class AIChatPanel extends VBox {
     }
 
     private void askQuestion() {
+        if (btnSend.isDisabled()) return;
         String question = tfQuestion.getText().trim();
         if (question.isEmpty()) { alert("请输入问题"); return; }
         String localKey = tfApiKey.getText().trim();
         String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
-        String answer;
         if (apiKey.isEmpty()) {
-            answer = generateLocalAnswer(question);
-        } else {
-            try {
-                answer = DBUtil.callOpenAIChat(apiKey, buildPrompt(question));
-            } catch (Exception ex) {
-                answer = "AI 调用失败（" + ex.getClass().getSimpleName()
-                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地回答：\n\n"
-                        + generateLocalAnswer(question);
-            }
+            String answer = generateLocalAnswer(question);
+            DBUtil.saveAIChatRecord(DBUtil.currentUsername, question, answer);
+            taAnswer.setText("【问题】\n" + question + "\n\n【AI 回答】\n" + answer);
+            tfQuestion.clear();
+            refreshHistory();
+            return;
         }
-        DBUtil.saveAIChatRecord(DBUtil.currentUsername, question, answer);
-        taAnswer.setText("【问题】\n" + question + "\n\n【AI 回答】\n" + answer);
-        tfQuestion.clear();
-        refreshHistory();
+        final String key = apiKey;
+        btnSend.setDisable(true);
+        taAnswer.setText("【问题】\n" + question + "\n\n【AI 回答】\nAI 正在思考，请稍候…");
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                try {
+                    return DBUtil.callOpenAIChat(key, buildPrompt(question));
+                } catch (Exception ex) {
+                    return "AI 调用失败（" + ex.getClass().getSimpleName()
+                            + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地回答：\n\n"
+                            + generateLocalAnswer(question);
+                }
+            }
+            @Override
+            protected void succeeded() {
+                String answer = getValue();
+                DBUtil.saveAIChatRecord(DBUtil.currentUsername, question, answer);
+                taAnswer.setText("【问题】\n" + question + "\n\n【AI 回答】\n" + answer);
+                tfQuestion.clear();
+                refreshHistory();
+                btnSend.setDisable(false);
+            }
+            @Override
+            protected void failed() {
+                taAnswer.setText("【问题】\n" + question + "\n\n【AI 回答】\n" + (getMessage() != null ? getMessage() : "AI 调用失败"));
+                btnSend.setDisable(false);
+            }
+        };
+        new Thread(task).start();
     }
 
     private String buildPrompt(String question) {

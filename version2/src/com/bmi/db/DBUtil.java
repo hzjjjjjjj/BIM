@@ -3460,6 +3460,7 @@ public class DBUtil {
             String model = cfg.getOrDefault("model_name", "glm-4.7-flash");
             String fullUrl = endpoint.endsWith("/chat/completions") ? endpoint : endpoint + "/chat/completions";
             Proxy proxy = buildProxy(cfg);
+            for (int attempt = 0; attempt < 2; attempt++) {
             URL url = new URL(fullUrl);
             HttpURLConnection conn = (proxy == null)
                     ? (HttpURLConnection) url.openConnection()
@@ -3481,9 +3482,16 @@ public class DBUtil {
             String line;
             while ((line = reader.readLine()) != null) response.append(line);
             String resp = response.toString();
-            if (code >= 400) return "AI 调用失败 (HTTP " + code + "): " + resp;
+            reader.close();
+            if (code == 429 && attempt == 0) { try { Thread.sleep(2000); } catch (InterruptedException ie) {} continue; }
+            if (code >= 400) {
+                if (code == 429) return "AI 调用被速率限制（HTTP 429）：您的账户请求过于频繁，请稍候再试，或升级套餐提高额度。";
+                return "AI 调用失败 (HTTP " + code + "): " + resp;
+            }
             String content = extractContent(resp);
             return content != null ? content : ("AI 返回: " + resp);
+            }
+            return "AI 调用失败：速率限制重试后仍失败，请稍候再试。";
         }
 
         /** 多模态视觉调用：传入图片 base64，让模型识别食物并返回结构化文本 */
@@ -3493,6 +3501,7 @@ public class DBUtil {
             String model = (visionModel == null || visionModel.trim().isEmpty()) ? cfg.getOrDefault("vision_model", "glm-4v-flash") : visionModel.trim();
             String fullUrl = endpoint.endsWith("/chat/completions") ? endpoint : endpoint + "/chat/completions";
             Proxy proxy = buildProxy(cfg);
+            for (int attempt = 0; attempt < 2; attempt++) {
             URL url = new URL(fullUrl);
             HttpURLConnection conn = (proxy == null)
                     ? (HttpURLConnection) url.openConnection()
@@ -3518,9 +3527,16 @@ public class DBUtil {
             String line;
             while ((line = reader.readLine()) != null) response.append(line);
             String resp = response.toString();
-            if (code >= 400) return "AI 调用失败 (HTTP " + code + "): " + resp;
+            reader.close();
+            if (code == 429 && attempt == 0) { try { Thread.sleep(2000); } catch (InterruptedException ie) {} continue; }
+            if (code >= 400) {
+                if (code == 429) return "AI 调用被速率限制（HTTP 429）：您的账户请求过于频繁，请稍候再试，或升级套餐提高额度。";
+                return "AI 调用失败 (HTTP " + code + "): " + resp;
+            }
             String content = extractContent(resp);
             return content != null ? content : ("AI 返回: " + resp);
+            }
+            return "AI 调用失败：速率限制重试后仍失败，请稍候再试。";
         }
 
         /** 构造 HTTP 代理；未配置时返回 null（交由 openConnection() 走直连或系统代理） */

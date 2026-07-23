@@ -6,6 +6,7 @@ import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.collections.*;
+import javafx.concurrent.Task;
 
 import java.util.*;
 import java.util.Map;
@@ -18,6 +19,7 @@ public class AICookbookPanel extends VBox {
     private final ListView<String> historyList = new ListView<>();
     private final ObservableList<String> historyItems = FXCollections.observableArrayList();
     private final Map<Integer, String[]> historyMap = new HashMap<>();
+    private final Button btnGen;
 
     public AICookbookPanel() {
         setSpacing(16);
@@ -33,7 +35,7 @@ public class AICookbookPanel extends VBox {
         HBox bottom = new HBox(10);
         bottom.setAlignment(Pos.CENTER_LEFT);
         Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("sub-title");
-        Button btnGen = new Button("让 AI 生成菜谱");
+        btnGen = new Button("让 AI 生成菜谱");
         btnGen.getStyleClass().add("button-primary");
         bottom.getChildren().addAll(lk, tfApiKey, btnGen);
 
@@ -100,23 +102,44 @@ public class AICookbookPanel extends VBox {
         if (request.isEmpty()) { alert("请输入你的菜谱需求"); return; }
         String localKey = tfApiKey.getText().trim();
         String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
-        String result;
         if (apiKey.isEmpty()) {
-            result = generateLocalCookbook(request);
-        } else {
-            try {
-                result = DBUtil.callOpenAIChat(apiKey,
-                        "请根据以下需求生成一份菜谱和采购清单：" + request +
-                        "\n要求：1)给出菜名；2)列出所需食材及用量；3)给出详细步骤；4)列出采购清单（用户已提供的食材不要重复列出）；5)给出每人份大致热量。控制在600字以内。");
-            } catch (Exception ex) {
-                result = "AI 调用失败（" + ex.getClass().getSimpleName()
-                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地模板：\n\n"
-                        + generateLocalCookbook(request);
-            }
+            String result = generateLocalCookbook(request);
+            taResult.setText(result);
+            DBUtil.saveAICookbookRecord(DBUtil.currentUsername, request, "自由输入", "-", 0, result);
+            refreshHistory();
+            return;
         }
-        taResult.setText(result);
-        DBUtil.saveAICookbookRecord(DBUtil.currentUsername, request, "自由输入", "-", 0, result);
-        refreshHistory();
+        final String key = apiKey;
+        btnGen.setDisable(true);
+        taResult.setText("AI 正在生成，请稍候…");
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                try {
+                    return DBUtil.callOpenAIChat(key,
+                            "请根据以下需求生成一份菜谱和采购清单：" + request +
+                            " 要求：1)给出菜名；2)列出所需食材及用量；3)给出详细步骤；4)列出采购清单（用户已提供的食材不要重复列出）；5)给出每人份大致热量。控制在600字以内。");
+                } catch (Exception ex) {
+                    return "AI 调用失败（" + ex.getClass().getSimpleName()
+                            + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地模板：\n\n"
+                            + generateLocalCookbook(request);
+                }
+            }
+            @Override
+            protected void succeeded() {
+                String r = getValue();
+                taResult.setText(r);
+                DBUtil.saveAICookbookRecord(DBUtil.currentUsername, request, "自由输入", "-", 0, r);
+                refreshHistory();
+                btnGen.setDisable(false);
+            }
+            @Override
+            protected void failed() {
+                taResult.setText(getMessage() != null ? getMessage() : "AI 调用失败");
+                btnGen.setDisable(false);
+            }
+        };
+        new Thread(task).start();
     }
 
     private String generateLocalCookbook(String request) {

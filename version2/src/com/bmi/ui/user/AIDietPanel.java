@@ -7,6 +7,7 @@ import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.collections.*;
+import javafx.concurrent.Task;
 
 import java.util.*;
 import java.util.Map;
@@ -20,6 +21,7 @@ public class AIDietPanel extends VBox {
     private final ListView<String> historyList = new ListView<>();
     private final ObservableList<String> historyItems = FXCollections.observableArrayList();
     private final Map<Integer, String[]> historyMap = new HashMap<>();
+    private final Button btnGen;
 
     public AIDietPanel() {
         setSpacing(16);
@@ -37,7 +39,7 @@ public class AIDietPanel extends VBox {
         Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("sub-title");
         input.getChildren().addAll(lg, cbGoal, lc, tfCustom, lk, tfApiKey);
 
-        Button btnGen = new Button("生成推荐方案");
+        btnGen = new Button("生成推荐方案");
         btnGen.getStyleClass().add("button-primary");
         HBox btnRow = new HBox(btnGen);
         btnRow.setAlignment(Pos.CENTER);
@@ -105,24 +107,48 @@ public class AIDietPanel extends VBox {
         String query = custom.isEmpty() ? goal : custom;
         String localKey = tfApiKey.getText().trim();
         String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
-        String plan;
         if (apiKey.isEmpty()) {
-            plan = generateLocalPlan(query);
-        } else {
-            try {
-                plan = DBUtil.callOpenAIChat(apiKey, buildPrompt(query));
-            } catch (Exception ex) {
-                plan = "AI 调用失败（" + ex.getClass().getSimpleName()
-                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地推荐：\n\n"
-                        + generateLocalPlan(query);
-            }
+            String plan = generateLocalPlan(query);
+            String full = buildHealthConstraintHeader() + "\n\n" + plan;
+            String risk = analyzeAllergyRisk(plan);
+            if (!risk.isEmpty()) full = full + "\n\n" + risk;
+            taPlan.setText(full);
+            DBUtil.saveAIDietRecord(DBUtil.currentUsername, query, full);
+            refreshHistory();
+            return;
         }
-        String full = buildHealthConstraintHeader() + "\n\n" + plan;
-        String risk = analyzeAllergyRisk(plan);
-        if (!risk.isEmpty()) full = full + "\n\n" + risk;
-        taPlan.setText(full);
-        DBUtil.saveAIDietRecord(DBUtil.currentUsername, query, full);
-        refreshHistory();
+        final String key = apiKey;
+        btnGen.setDisable(true);
+        taPlan.setText("AI 正在生成，请稍候…");
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() {
+                try {
+                    return DBUtil.callOpenAIChat(key, buildPrompt(query));
+                } catch (Exception ex) {
+                    return "AI 调用失败（" + ex.getClass().getSimpleName()
+                            + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地推荐：\n\n"
+                            + generateLocalPlan(query);
+                }
+            }
+            @Override
+            protected void succeeded() {
+                String plan = getValue();
+                String full = buildHealthConstraintHeader() + "\n\n" + plan;
+                String risk = analyzeAllergyRisk(plan);
+                if (!risk.isEmpty()) full = full + "\n\n" + risk;
+                taPlan.setText(full);
+                DBUtil.saveAIDietRecord(DBUtil.currentUsername, query, full);
+                refreshHistory();
+                btnGen.setDisable(false);
+            }
+            @Override
+            protected void failed() {
+                taPlan.setText(getMessage() != null ? getMessage() : "AI 调用失败");
+                btnGen.setDisable(false);
+            }
+        };
+        new Thread(task).start();
     }
 
     private String buildPrompt(String goal) {
