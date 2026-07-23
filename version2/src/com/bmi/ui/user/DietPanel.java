@@ -148,6 +148,7 @@ public class DietPanel extends VBox {
         resultCard.getChildren().addAll(t3, lblResultHint, resultsBox, resultActions);
 
         getChildren().addAll(inputCard, resultCard, galleryCard, summaryCard);
+        VBox.setVgrow(galleryCard, Priority.ALWAYS);
         VBox.setVgrow(summaryCard, Priority.ALWAYS);
 
         btnAdd.setOnAction(e -> addDietRecord());
@@ -186,7 +187,8 @@ public class DietPanel extends VBox {
 
         ScrollPane scroll = new ScrollPane(galleryPane);
         scroll.setFitToWidth(true);
-        scroll.setPrefHeight(300);
+        scroll.setPrefHeight(440);
+        VBox.setVgrow(scroll, Priority.ALWAYS);
         scroll.setPannable(true); // 支持鼠标拖动滚动图库
         scroll.setStyle("-fx-background: transparent; -fx-border-width: 0;");
         // 滚轮滚动图库：固定步长、不与主内容区抢占
@@ -292,19 +294,15 @@ public class DietPanel extends VBox {
         return chip;
     }
 
-    /** 从图库一键加入今日饮食：用量取该食物的标准份量（克）。 */
+    /**
+     * 图库点击「加入」：不再直接写库，而是把食物名 + 标准份量同步回填到顶部输入框，
+     * 由用户确认克数 / 餐次后统一走 addDietRecord 这一条记录路径（单一数据源，删掉双写库逻辑）。
+     */
     private void addFoodFromGallery(DBUtil.FoodRow fr) {
-        String mealType = cbMealType.getValue();
         double grams = (fr.defaultGrams() > 0) ? fr.defaultGrams() : 100;
-        double ratio = grams / 100.0;
-        int calories = (int) (fr.cal() * ratio);
-        if (DBUtil.saveDietRecord(mealType, fr.name() + "(" + f0(grams) + "g)",
-                calories, fr.protein() * ratio, fr.carbs() * ratio, fr.fat() * ratio)) {
-            refreshSummary();
-            alert("已加入 " + fr.name() + " (" + f0(grams) + "g)");
-        } else {
-            alert("加入失败");
-        }
+        cbFood.setValue(fr.name());   // 触发顶部监听器自动把标准份量同步到克数框
+        tfGrams.setText(f0(grams));   // 兜底：库内标准份量缺失时也确保克数已填
+        alert("已选 " + fr.name() + "（" + f0(grams) + "g），可在上方调整克数 / 餐次后点「记录饮食」。");
     }
 
     // ===================== 识图逻辑 =====================
