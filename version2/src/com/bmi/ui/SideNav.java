@@ -80,6 +80,10 @@ public class SideNav {
         // 标准化鼠标滚轮滚动：每次固定步长，避免灵敏度随硬件 delta 跳变
         content.addEventFilter(ScrollEvent.SCROLL, e -> normalizeScroll(content, e));
 
+        // 全屏/最大化自适应：视口高度变化时，让「短于视口」的面板拉伸撑满，
+        // 「高于视口」的面板保持原高（内部滚动条生效），避免全屏后内容缩在左上角、下方留大片空白。
+        content.viewportBoundsProperty().addListener((obs, o, n) -> fillHeight());
+
         sidebar.getStyleClass().add("sidebar");
 
         Label brand = new Label(brandTitle);
@@ -178,6 +182,18 @@ public class SideNav {
 
         Node panel = tab.getContent();
         content.setContent(panel);
+        fillHeight();
+    }
+
+    /** 让当前内容面板在视口内撑满：短则拉伸到视口高，长则保持原高（可滚动） */
+    private void fillHeight() {
+        Node c = content.getContent();
+        if (!(c instanceof Region)) return;
+        double vh = content.getViewportBounds().getHeight();
+        if (vh <= 0) return;
+        Region r = (Region) c;
+        double natural = r.prefHeight(-1);
+        r.setMinHeight(natural <= vh ? vh : Region.USE_COMPUTED_SIZE);
     }
 
     private static void normalizeScroll(ScrollPane sp, ScrollEvent e) {
