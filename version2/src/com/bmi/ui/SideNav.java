@@ -1,6 +1,7 @@
 package com.bmi.ui;
 
 import javafx.geometry.*;
+import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.input.ScrollEvent;
@@ -82,7 +83,11 @@ public class SideNav {
 
         // 全屏/最大化自适应：视口高度变化时，让「短于视口」的面板拉伸撑满，
         // 「高于视口」的面板保持原高（内部滚动条生效），避免全屏后内容缩在左上角、下方留大片空白。
+        // 用 fitToHeight 开关而非改 prefHeight：ScrollPane 只有 fitToHeight=true 才会把内容拉伸到视口高。
         content.viewportBoundsProperty().addListener((obs, o, n) -> fillHeight());
+        content.heightProperty().addListener((obs, o, n) -> fillHeight());
+        // 构造后首帧布局完成再算一次，确保初次进入（如登录后立即进主页）也能撑满
+        Platform.runLater(this::fillHeight);
 
         sidebar.getStyleClass().add("sidebar");
 
@@ -185,9 +190,7 @@ public class SideNav {
         fillHeight();
     }
 
-    /** 让当前内容面板在视口内撑满：短则拉伸到视口高，长则保持原高（可滚动）。
-     *  注意：fitToHeight=false 时 ScrollPane 按内容的 prefHeight 布局，
-     *  所以必须改 prefHeight(+maxHeight) 才能撑满，仅改 minHeight 无效。 */
+    /** 让当前内容面板在视口内撑满：短则开启 fitToHeight 拉伸到视口高，长则关闭 fitToHeight 保持原高（可滚动）。 */
     private void fillHeight() {
         Node c = content.getContent();
         if (!(c instanceof Region)) return;
@@ -195,13 +198,10 @@ public class SideNav {
         if (vh <= 0) return;
         Region r = (Region) c;
         double natural = r.prefHeight(-1);
-        if (natural <= vh) {
-            r.setPrefHeight(vh);
-            r.setMaxHeight(vh);
-        } else {
-            r.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            r.setMaxHeight(Region.USE_COMPUTED_SIZE);
-        }
+        // 清掉历史 pref/max 覆盖，交给 fitToHeight 或自然布局接管
+        r.setPrefHeight(Region.USE_COMPUTED_SIZE);
+        r.setMaxHeight(Region.USE_COMPUTED_SIZE);
+        content.setFitToHeight(natural <= vh);
     }
 
     private static void normalizeScroll(ScrollPane sp, ScrollEvent e) {
