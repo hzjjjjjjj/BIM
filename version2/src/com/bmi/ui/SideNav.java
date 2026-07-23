@@ -185,7 +185,9 @@ public class SideNav {
         fillHeight();
     }
 
-    /** 让当前内容面板在视口内撑满：短则拉伸到视口高，长则保持原高（可滚动） */
+    /** 让当前内容面板在视口内撑满：短则拉伸到视口高，长则保持原高（可滚动）。
+     *  注意：fitToHeight=false 时 ScrollPane 按内容的 prefHeight 布局，
+     *  所以必须改 prefHeight(+maxHeight) 才能撑满，仅改 minHeight 无效。 */
     private void fillHeight() {
         Node c = content.getContent();
         if (!(c instanceof Region)) return;
@@ -193,7 +195,13 @@ public class SideNav {
         if (vh <= 0) return;
         Region r = (Region) c;
         double natural = r.prefHeight(-1);
-        r.setMinHeight(natural <= vh ? vh : Region.USE_COMPUTED_SIZE);
+        if (natural <= vh) {
+            r.setPrefHeight(vh);
+            r.setMaxHeight(vh);
+        } else {
+            r.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            r.setMaxHeight(Region.USE_COMPUTED_SIZE);
+        }
     }
 
     private static void normalizeScroll(ScrollPane sp, ScrollEvent e) {
