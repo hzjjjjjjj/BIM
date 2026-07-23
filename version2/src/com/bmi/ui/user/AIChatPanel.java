@@ -34,7 +34,10 @@ public class AIChatPanel extends VBox {
         historyList.setPrefWidth(280);
         historyList.setItems(historyItems);
         historyList.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> showHistoryDetail());
-        leftCard.getChildren().addAll(t1, historyList);
+        Button btnDelete = new Button("删除选中");
+        btnDelete.getStyleClass().add("button-ghost");
+        btnDelete.setOnAction(e -> deleteSelected());
+        leftCard.getChildren().addAll(t1, historyList, btnDelete);
 
         // 右侧问答
         HBox input = new HBox(10);
@@ -181,6 +184,25 @@ public class AIChatPanel extends VBox {
     private String str(Map<String, Object> m, String k) {
         Object v = m.get(k);
         return v == null ? "-" : v.toString();
+    }
+
+    private void deleteSelected() {
+        String selected = historyList.getSelectionModel().getSelectedItem();
+        if (selected == null) { alert("请先选择要删除的历史问答"); return; }
+        int id = Integer.parseInt(selected.split(" \\| ")[0]);
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "确定删除这条历史问答吗？此操作不可恢复。", ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("删除确认");
+        confirm.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.YES) {
+                if (DBUtil.deleteAIChatRecord(id, DBUtil.currentUsername)) {
+                    refreshHistory();
+                    taAnswer.setText("");
+                    alert("已删除该历史问答");
+                } else {
+                    alert("删除失败，请重试");
+                }
+            }
+        });
     }
 
     private void alert(String m) {

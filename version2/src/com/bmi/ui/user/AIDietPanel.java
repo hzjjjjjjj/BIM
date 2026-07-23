@@ -70,7 +70,10 @@ public class AIDietPanel extends VBox {
         historyList.setPrefWidth(260);
         historyList.setItems(historyItems);
         historyList.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> showDetail());
-        leftCard.getChildren().addAll(t2, historyList);
+        Button btnDelete = new Button("删除选中");
+        btnDelete.getStyleClass().add("button-ghost");
+        btnDelete.setOnAction(e -> deleteSelected());
+        leftCard.getChildren().addAll(t2, historyList, btnDelete);
 
         HBox root = new HBox(14);
         root.getChildren().addAll(leftCard, centerCard);
@@ -277,6 +280,25 @@ public class AIDietPanel extends VBox {
     private double num(Map<String, Object> m, String k) {
         Object v = m.get(k);
         return v instanceof Number ? ((Number) v).doubleValue() : 0.0;
+    }
+
+    private void deleteSelected() {
+        String selected = historyList.getSelectionModel().getSelectedItem();
+        if (selected == null) { alert("请先选择要删除的历史方案"); return; }
+        int id = Integer.parseInt(selected.split(" \\| ")[0]);
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "确定删除这条历史方案吗？此操作不可恢复。", ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("删除确认");
+        confirm.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.YES) {
+                if (DBUtil.deleteAIDietRecord(id, DBUtil.currentUsername)) {
+                    refreshHistory();
+                    taPlan.setText("");
+                    alert("已删除该历史方案");
+                } else {
+                    alert("删除失败，请重试");
+                }
+            }
+        });
     }
 
     private void alert(String m) {
