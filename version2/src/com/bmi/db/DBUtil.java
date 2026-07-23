@@ -3194,6 +3194,33 @@ public class DBUtil {
             }
         }
 
+        /** 批量删除指定用户的多条记录（表名区分菜谱/饮食/问答） */
+        public static int deleteAICookbookRecords(String username, List<Integer> ids) {
+            return batchDelete("ai_cookbook_records", username, ids);
+        }
+        public static int deleteAIDietRecords(String username, List<Integer> ids) {
+            return batchDelete("ai_diet_records", username, ids);
+        }
+        public static int deleteAIChatRecords(String username, List<Integer> ids) {
+            return batchDelete("ai_chat_records", username, ids);
+        }
+        private static int batchDelete(String table, String username, List<Integer> ids) {
+            if (ids == null || ids.isEmpty()) return 0;
+            StringBuilder sb = new StringBuilder("DELETE FROM ").append(table)
+                    .append(" WHERE username = ? AND id IN (");
+            for (int i = 0; i < ids.size(); i++) sb.append(i == 0 ? "?" : ",?");
+            sb.append(")");
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sb.toString())) {
+                ps.setString(1, username);
+                for (int i = 0; i < ids.size(); i++) ps.setInt(2 + i, ids.get(i));
+                return ps.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return 0;
+            }
+        }
+
         /** 获取 AI 使用统计（管理员） */
         public static List<String[]> getAIUsageStats() {
             List<String[]> list = new ArrayList<>();

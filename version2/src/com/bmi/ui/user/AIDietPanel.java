@@ -69,11 +69,18 @@ public class AIDietPanel extends VBox {
         t2.getStyleClass().add("card-title");
         historyList.setPrefWidth(260);
         historyList.setItems(historyItems);
+        historyList.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         historyList.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> showDetail());
+        Button btnSelectAll = new Button("全选");
+        btnSelectAll.getStyleClass().add("button-ghost");
+        btnSelectAll.setOnAction(e -> historyList.getSelectionModel().selectAll());
+        Button btnBatchDelete = new Button("批量删除");
+        btnBatchDelete.getStyleClass().add("button-accent");
+        btnBatchDelete.setOnAction(e -> batchDelete());
         Button btnDelete = new Button("删除选中");
         btnDelete.getStyleClass().add("button-ghost");
         btnDelete.setOnAction(e -> deleteSelected());
-        leftCard.getChildren().addAll(t2, historyList, btnDelete);
+        leftCard.getChildren().addAll(t2, historyList, btnSelectAll, btnBatchDelete, btnDelete);
 
         HBox root = new HBox(14);
         root.getChildren().addAll(leftCard, centerCard);
@@ -297,6 +304,23 @@ public class AIDietPanel extends VBox {
                 } else {
                     alert("删除失败，请重试");
                 }
+            }
+        });
+    }
+
+    private void batchDelete() {
+        ObservableList<String> selected = historyList.getSelectionModel().getSelectedItems();
+        if (selected == null || selected.isEmpty()) { alert("请先选择要删除的历史方案（可多选，或点「全选」）"); return; }
+        List<Integer> ids = new ArrayList<>();
+        for (String item : selected) ids.add(Integer.parseInt(item.split(" \\| ")[0]));
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "确定删除选中的 " + ids.size() + " 条历史方案吗？此操作不可恢复。", ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("批量删除确认");
+        confirm.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.YES) {
+                int n = DBUtil.deleteAIDietRecords(DBUtil.currentUsername, ids);
+                refreshHistory();
+                taPlan.setText("");
+                alert("已删除 " + n + " 条历史方案");
             }
         });
     }
