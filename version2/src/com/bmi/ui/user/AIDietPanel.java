@@ -112,7 +112,9 @@ public class AIDietPanel extends VBox {
             try {
                 plan = DBUtil.callOpenAIChat(apiKey, buildPrompt(query));
             } catch (Exception ex) {
-                plan = "AI 调用失败，已切换本地推荐：\n\n" + generateLocalPlan(query);
+                plan = "AI 调用失败（" + ex.getClass().getSimpleName()
+                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地推荐：\n\n"
+                        + generateLocalPlan(query);
             }
         }
         String full = buildHealthConstraintHeader() + "\n\n" + plan;

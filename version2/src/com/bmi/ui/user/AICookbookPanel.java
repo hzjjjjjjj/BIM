@@ -109,7 +109,9 @@ public class AICookbookPanel extends VBox {
                         "请根据以下需求生成一份菜谱和采购清单：" + request +
                         "\n要求：1)给出菜名；2)列出所需食材及用量；3)给出详细步骤；4)列出采购清单（用户已提供的食材不要重复列出）；5)给出每人份大致热量。控制在600字以内。");
             } catch (Exception ex) {
-                result = "AI 调用失败，已切换本地模板：\n\n" + generateLocalCookbook(request);
+                result = "AI 调用失败（" + ex.getClass().getSimpleName()
+                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地模板：\n\n"
+                        + generateLocalCookbook(request);
             }
         }
         taResult.setText(result);

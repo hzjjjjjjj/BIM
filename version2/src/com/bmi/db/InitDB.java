@@ -488,6 +488,10 @@ public class InitDB {
         // 兼容已存在库：补 vision_model 列（识图用视觉模型）
         try { execUpdate(conn, "ALTER TABLE ai_api_config ADD COLUMN IF NOT EXISTS vision_model VARCHAR(100) DEFAULT 'glm-4v-flash'"); } catch (SQLException ignore) {}
 
+        // 兼容已存在库：补代理列（校园/企业网经代理访问外网）
+        try { execUpdate(conn, "ALTER TABLE ai_api_config ADD COLUMN IF NOT EXISTS proxy_host VARCHAR(100)"); } catch (SQLException ignore) {}
+        try { execUpdate(conn, "ALTER TABLE ai_api_config ADD COLUMN IF NOT EXISTS proxy_port VARCHAR(10)"); } catch (SQLException ignore) {}
+
         // AI 提示词模板表
         execUpdate(conn,
             "CREATE TABLE IF NOT EXISTS ai_templates (" +

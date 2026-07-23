@@ -106,7 +106,9 @@ public class AIChatPanel extends VBox {
             try {
                 answer = DBUtil.callOpenAIChat(apiKey, buildPrompt(question));
             } catch (Exception ex) {
-                answer = "AI 调用失败，已切换本地回答：\n\n" + generateLocalAnswer(question);
+                answer = "AI 调用失败（" + ex.getClass().getSimpleName()
+                        + (ex.getMessage() != null ? "：" + ex.getMessage() : "") + "），已切换本地回答：\n\n"
+                        + generateLocalAnswer(question);
             }
         }
         DBUtil.saveAIChatRecord(DBUtil.currentUsername, question, answer);

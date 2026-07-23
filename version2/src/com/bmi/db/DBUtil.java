@@ -3431,7 +3431,9 @@ public class DBUtil {
             cfg.put("model_name", "glm-4.7-flash");
             cfg.put("vision_model", "glm-4v-flash");
             cfg.put("endpoint_url", "https://open.bigmodel.cn/api/paas/v4");
-            String sql = "SELECT provider AS provider_name, api_key, model_name, vision_model, endpoint AS endpoint_url FROM ai_api_config WHERE provider = ? ORDER BY id DESC LIMIT 1";
+            cfg.put("proxy_host", "");
+            cfg.put("proxy_port", "");
+            String sql = "SELECT provider AS provider_name, api_key, model_name, vision_model, endpoint AS endpoint_url, proxy_host, proxy_port FROM ai_api_config WHERE provider = ? ORDER BY id DESC LIMIT 1";
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, "zhipu");
@@ -3442,6 +3444,8 @@ public class DBUtil {
                     cfg.put("model_name", rs.getString("model_name") == null ? "glm-4.7-flash" : rs.getString("model_name"));
                     cfg.put("vision_model", rs.getString("vision_model") == null ? "glm-4v-flash" : rs.getString("vision_model"));
                     cfg.put("endpoint_url", rs.getString("endpoint_url") == null ? "https://open.bigmodel.cn/api/paas/v4" : rs.getString("endpoint_url"));
+                    cfg.put("proxy_host", rs.getString("proxy_host") == null ? "" : rs.getString("proxy_host"));
+                    cfg.put("proxy_port", rs.getString("proxy_port") == null ? "" : rs.getString("proxy_port"));
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -3455,8 +3459,11 @@ public class DBUtil {
             String endpoint = cfg.getOrDefault("endpoint_url", "https://open.bigmodel.cn/api/paas/v4");
             String model = cfg.getOrDefault("model_name", "glm-4.7-flash");
             String fullUrl = endpoint.endsWith("/chat/completions") ? endpoint : endpoint + "/chat/completions";
+            Proxy proxy = buildProxy(cfg);
             URL url = new URL(fullUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            HttpURLConnection conn = (proxy == null)
+                    ? (HttpURLConnection) url.openConnection()
+                    : (HttpURLConnection) url.openConnection(proxy);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("Authorization", "Bearer " + apiKey);
@@ -3485,8 +3492,11 @@ public class DBUtil {
             String endpoint = cfg.getOrDefault("endpoint_url", "https://open.bigmodel.cn/api/paas/v4");
             String model = (visionModel == null || visionModel.trim().isEmpty()) ? cfg.getOrDefault("vision_model", "glm-4v-flash") : visionModel.trim();
             String fullUrl = endpoint.endsWith("/chat/completions") ? endpoint : endpoint + "/chat/completions";
+            Proxy proxy = buildProxy(cfg);
             URL url = new URL(fullUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            HttpURLConnection conn = (proxy == null)
+                    ? (HttpURLConnection) url.openConnection()
+                    : (HttpURLConnection) url.openConnection(proxy);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("Authorization", "Bearer " + apiKey);
@@ -3511,6 +3521,20 @@ public class DBUtil {
             if (code >= 400) return "AI 调用失败 (HTTP " + code + "): " + resp;
             String content = extractContent(resp);
             return content != null ? content : ("AI 返回: " + resp);
+        }
+
+        /** 构造 HTTP 代理；未配置时返回 null（交由 openConnection() 走直连或系统代理） */
+        private static Proxy buildProxy(Map<String, String> cfg) {
+            String ph = cfg == null ? "" : cfg.getOrDefault("proxy_host", "");
+            if (ph == null || ph.trim().isEmpty()) return null;
+            int port;
+            try {
+                String pp = cfg.getOrDefault("proxy_port", "").trim();
+                port = pp.isEmpty() ? 80 : Integer.parseInt(pp);
+            } catch (NumberFormatException e) {
+                port = 80;
+            }
+            return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(ph.trim(), port));
         }
 
         private static String escJson(String s) {
@@ -3561,29 +3585,33 @@ public class DBUtil {
         }
 
         /** 保存 AI API 配置（含视觉模型） */
-        public static boolean saveAIApiConfig(String apiKey, String modelName, String visionModel, String endpointUrl) {
+        public static boolean saveAIApiConfig(String apiKey, String modelName, String visionModel, String endpointUrl, String proxyHost, String proxyPort) {
             Map<String, String> existing = getAIApiConfig();
             String sql;
             boolean hasRecord = existing != null && !existing.getOrDefault("api_key", "").isEmpty();
             try (Connection conn = getConnection()) {
                 if (hasRecord) {
-                    sql = "UPDATE ai_api_config SET api_key = ?, model_name = ?, vision_model = ?, endpoint = ?, updated_at = CURRENT_TIMESTAMP WHERE provider = ?";
+                    sql = "UPDATE ai_api_config SET api_key = ?, model_name = ?, vision_model = ?, endpoint = ?, proxy_host = ?, proxy_port = ?, updated_at = CURRENT_TIMESTAMP WHERE provider = ?";
                     try (PreparedStatement ps = conn.prepareStatement(sql)) {
                         ps.setString(1, apiKey);
                         ps.setString(2, modelName);
                         ps.setString(3, visionModel);
                         ps.setString(4, endpointUrl);
-                        ps.setString(5, "zhipu");
+                        ps.setString(5, proxyHost);
+                        ps.setString(6, proxyPort);
+                        ps.setString(7, "zhipu");
                         return ps.executeUpdate() > 0;
                     }
                 } else {
-                    sql = "INSERT INTO ai_api_config (provider, api_key, model_name, vision_model, endpoint) VALUES (?, ?, ?, ?, ?)";
+                    sql = "INSERT INTO ai_api_config (provider, api_key, model_name, vision_model, endpoint, proxy_host, proxy_port) VALUES (?, ?, ?, ?, ?, ?, ?)";
                     try (PreparedStatement ps = conn.prepareStatement(sql)) {
                         ps.setString(1, "zhipu");
                         ps.setString(2, apiKey);
                         ps.setString(3, modelName);
                         ps.setString(4, visionModel);
                         ps.setString(5, endpointUrl);
+                        ps.setString(6, proxyHost);
+                        ps.setString(7, proxyPort);
                         return ps.executeUpdate() > 0;
                     }
                 }
