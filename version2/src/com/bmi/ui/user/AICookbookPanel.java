@@ -66,7 +66,10 @@ public class AICookbookPanel extends VBox {
         historyList.setPrefWidth(260);
         historyList.setItems(historyItems);
         historyList.getSelectionModel().selectedItemProperty().addListener((o, ov, nv) -> showDetail());
-        leftCard.getChildren().addAll(t2, historyList);
+        Button btnDelete = new Button("删除选中");
+        btnDelete.getStyleClass().add("button-ghost");
+        btnDelete.setOnAction(e -> deleteSelected());
+        leftCard.getChildren().addAll(t2, historyList, btnDelete);
 
         HBox root = new HBox(14);
         root.getChildren().addAll(leftCard, centerCard);
@@ -165,6 +168,25 @@ public class AICookbookPanel extends VBox {
         sb.append("□ 鸡胸肉\n□ 番茄\n□ 鸡蛋\n□ 食用油\n□ 盐/生抽\n□ 主食（米饭/面条/馒头）\n");
         sb.append("\n本菜谱由本地模板生成，仅供参考。输入 API Key 可获得更贴合你需求的菜谱。");
         return sb.toString();
+    }
+
+    private void deleteSelected() {
+        String selected = historyList.getSelectionModel().getSelectedItem();
+        if (selected == null) { alert("请先选择要删除的历史菜谱"); return; }
+        int id = Integer.parseInt(selected.split(" \\| ")[0]);
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "确定删除这条历史菜谱吗？此操作不可恢复。", ButtonType.YES, ButtonType.NO);
+        confirm.setTitle("删除确认");
+        confirm.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.YES) {
+                if (DBUtil.deleteAICookbookRecord(id, DBUtil.currentUsername)) {
+                    refreshHistory();
+                    taResult.setText("");
+                    alert("已删除该历史菜谱");
+                } else {
+                    alert("删除失败，请重试");
+                }
+            }
+        });
     }
 
     private void alert(String m) {

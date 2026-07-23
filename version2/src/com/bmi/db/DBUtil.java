@@ -3152,6 +3152,20 @@ public class DBUtil {
             }
         }
 
+        /** 删除指定用户的某条菜谱记录（按 id + username 双重限定，防止越权） */
+        public static boolean deleteAICookbookRecord(int id, String username) {
+            String sql = "DELETE FROM ai_cookbook_records WHERE id = ? AND username = ?";
+            try (Connection conn = getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, id);
+                ps.setString(2, username);
+                return ps.executeUpdate() > 0;
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+
         /** 获取 AI 使用统计（管理员） */
         public static List<String[]> getAIUsageStats() {
             List<String[]> list = new ArrayList<>();
