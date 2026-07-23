@@ -39,7 +39,6 @@ public class DietPanel extends VBox {
     private final Label lblSummary = new Label("今日汇总: 暂无数据");
     private final PieChart pie = new PieChart();
     private final Map<String, String[]> foodData = new LinkedHashMap<>();
-    private final List<String> allFoodNames = new ArrayList<>();
     private final TableView<String[]> todayTable = new TableView<>();
     private final ObservableList<String[]> todayData = FXCollections.observableArrayList();
     private String reportContent = "";
@@ -68,18 +67,6 @@ public class DietPanel extends VBox {
         cbMealType.getItems().addAll("早餐", "午餐", "晚餐", "加餐");
         cbMealType.setValue("早餐");
         tfGrams.setPrefWidth(80);
-        // 食物框可键盘输入：边打边过滤下拉项（autocomplete），保留库内全量名用于回退匹配
-        cbFood.setEditable(true);
-        cbFood.getEditor().textProperty().addListener((o, ov, nv) -> {
-            if (nv == null) return;
-            String kw = nv.toLowerCase().trim();
-            List<String> filtered = new ArrayList<>();
-            for (String n : allFoodNames) {
-                if (n.toLowerCase().contains(kw)) filtered.add(n);
-            }
-            cbFood.getItems().setAll(filtered);
-            if (!filtered.isEmpty() && cbFood.isFocused()) cbFood.show();
-        });
 
         // 选菜时克数自动同步为该食物的标准份量，不必每次手改
         cbFood.valueProperty().addListener((o, ov, nv) -> {
@@ -646,49 +633,18 @@ public class DietPanel extends VBox {
     private void loadFoods() {
         cbFood.getItems().clear();
         foodData.clear();
-        allFoodNames.clear();
         for (String[] food : DBUtil.getAllFoods()) {
             String name = food[0];
             foodData.put(name, food);
-            allFoodNames.add(name);
+            cbFood.getItems().add(name);
         }
-        cbFood.getItems().setAll(allFoodNames);
         if (!cbFood.getItems().isEmpty()) cbFood.setValue(cbFood.getItems().get(0));
-    }
-
-    /** 将用户输入（键盘输入/下拉选择）归一为库内权威食物名：精确 → 别名归一 → 大小写/空白容错。命中返回库内名，否则 null。 */
-    private String resolveFoodName(String name) {
-        if (name == null) return null;
-        if (foodData.containsKey(name)) return name;
-        String canon = FoodAliasKB.canonical(name);
-        if (foodData.containsKey(canon)) return canon;
-        for (String k : foodData.keySet()) {
-            if (k.equalsIgnoreCase(name) || FoodAliasKB.canonical(k).equalsIgnoreCase(canon)) return k;
-        }
-        return null;
     }
 
     private void addDietRecord() {
         String mealType = cbMealType.getValue();
-        String rawFood = cbFood.getValue();
-        if (rawFood == null || rawFood.trim().isEmpty()) { alert("请输入或选择食物"); return; }
-        String foodName = rawFood.trim();
-        // 先精确/别名归一匹配库内食物，再退化为键盘输入的部分匹配收敛
-        String resolved = resolveFoodName(foodName);
-        if (resolved == null) {
-            String kw = foodName.toLowerCase();
-            List<String> cands = new ArrayList<>();
-            for (String n : allFoodNames) if (n.toLowerCase().contains(kw)) cands.add(n);
-            if (cands.size() == 1) resolved = cands.get(0);
-            else if (cands.isEmpty()) {
-                alert("食物库中未找到「" + foodName + "」。可继续用键盘在列表中筛选，或联系管理员补充该食物。");
-                return;
-            } else {
-                alert("「" + foodName + "」匹配到多个食物（" + String.join("、", cands) + "），请从下拉中选择具体一项。");
-                return;
-            }
-        }
-        foodName = resolved;
+        String foodName = cbFood.getValue();
+        if (foodName == null) { alert("请选择食物"); return; }
         try {
             double grams = Double.parseDouble(tfGrams.getText().trim());
             if (grams <= 0 || grams > 5000) { alert("食用量范围 1-5000g"); return; }
