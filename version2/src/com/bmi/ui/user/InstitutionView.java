@@ -5,6 +5,7 @@ import com.bmi.db.DBUtil;
 import com.bmi.util.ExcelUtil;
 import com.bmi.util.HealthCalculator;
 import com.bmi.util.Theme;
+import com.bmi.util.ReportUtil;
 
 import javafx.geometry.*;
 import javafx.scene.chart.*;
@@ -389,6 +390,29 @@ public class InstitutionView extends VBox {
         TextArea ta = new TextArea(sb.toString());
         ta.setEditable(false); ta.setWrapText(true); ta.setPrefSize(560, 200);
 
+        // 组装导出报告所需数据（供「导出报告」使用）
+        Map<String, String> metrics = new LinkedHashMap<>();
+        metrics.put("BMI", String.format("%.1f", bmi) + " (" + HealthCalculator.classifyBMI(bmi) + ")");
+        metrics.put("体脂率", String.format("%.1f", bodyFat) + "%");
+        metrics.put("内脏脂肪", visceral + " (" + HealthCalculator.assessVisceralFat(visceral) + ")");
+        metrics.put("肌肉量评级", HealthCalculator.assessMuscle(boneMuscle, weight, gender));
+        metrics.put("水分率", String.format("%.1f", waterRate) + "%");
+        metrics.put("腰围", String.format("%.1f", waist) + " cm");
+        metrics.put("腰高比", HealthCalculator.assessWHtR(waist, height));
+        metrics.put("体质类型", String.valueOf(rec.get("body_type")));
+        metrics.put("健康评分", healthScore + " / 100 · " + scoreLevel);
+        List<String[]> trend = new ArrayList<>();
+        SimpleDateFormat sdfR = new SimpleDateFormat("yyyy-MM-dd");
+        for (Map<String, Object> m : history) {
+            Date d = (Date) m.get("record_date");
+            trend.add(new String[]{ sdfR.format(d), String.format("%.1f", ((Number) m.get("weight")).doubleValue()) });
+        }
+
+        Button btnExport = new Button("导出报告(.docx)");
+        btnExport.getStyleClass().add("button-accent");
+        btnExport.setOnAction(e -> exportAnalysisReport(patientCode, gender, age, height, metrics, risks, sb.toString(), trend));
+        head.getChildren().add(btnExport);
+
         root.getChildren().addAll(head, grid, chart, ta);
 
         Dialog<Void> d = new Dialog<>();
@@ -398,6 +422,28 @@ public class InstitutionView extends VBox {
         d.getDialogPane().setPrefSize(620, 640);
         d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         d.showAndWait();
+    }
+
+    /** 将当前病人分析结果导出为 Word(.docx) 报告，便于机构打印或发给病人 */
+    private void exportAnalysisReport(String patientCode, String gender, int age, double height,
+            Map<String, String> metrics, List<String> risks, String analysisText, List<String[]> trend) {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("导出病人分析报告");
+        fc.setInitialFileName("分析报告_" + patientCode + ".docx");
+        fc.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Word 文档", "*.docx"),
+                new FileChooser.ExtensionFilter("所有文件", "*.*"));
+        File file = fc.showSaveDialog(getScene() == null ? null : getScene().getWindow());
+        if (file == null) return;
+        File outFile = file;
+        if (!outFile.getName().toLowerCase().endsWith(".docx")) {
+            outFile = new File(outFile.getParent() == null ? "" : outFile.getParent(), outFile.getName() + ".docx");
+        }
+        if (ReportUtil.exportPatientDocx(outFile, patientCode, gender, age, height, metrics, risks, analysisText, trend)) {
+            alert("报告已导出：\n" + outFile.getAbsolutePath());
+        } else {
+            alert("导出失败，请检查写入权限或磁盘空间");
+        }
     }
 
     private List<String> buildRiskFlags(String gender, int age, double bmi, double bodyFat,
