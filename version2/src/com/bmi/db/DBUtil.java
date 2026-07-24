@@ -41,6 +41,7 @@ public class DBUtil {
     public static String currentActivityLevel = "久坐";
     public static String currentAllergies = "";
     public static String currentChronicDiseases = "";
+    public static String currentUserApiKey = "";
     private static final String DB_URL = "jdbc:postgresql://localhost:5433/health_db";
     private static final String DB_USER = "postgres";
     private static final String DB_PASS = "12345678";
@@ -196,7 +197,7 @@ public class DBUtil {
 
         /** 验证登录 */
         public static boolean loginUser(String username, String password) {
-            String sql = "SELECT password, salt, gender, age, height, weight, waist, activity_level, allergies, chronic_diseases FROM users WHERE username = ?";
+            String sql = "SELECT password, salt, gender, age, height, weight, waist, activity_level, allergies, chronic_diseases, ai_api_key FROM users WHERE username = ?";
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, username);
@@ -217,6 +218,8 @@ public class DBUtil {
                         currentChronicDiseases = rs.getString("chronic_diseases");
                         if (currentAllergies == null) currentAllergies = "";
                         if (currentChronicDiseases == null) currentChronicDiseases = "";
+                        String loadedKey = rs.getString("ai_api_key");
+                        currentUserApiKey = loadedKey == null ? "" : loadedKey.trim();
                         return true;
                     }
                 }
@@ -1491,21 +1494,23 @@ public class DBUtil {
         // ==================== 机构入驻申请 / 审批 ====================
 
         /** 机构提交入驻申请 (状态 pending, 含机构自设密码的哈希; 不写入 institutions 表) */
-        public static boolean submitInstitutionRequest(String orgName, String contact, String phone, String note, String password) {
+        public static boolean submitInstitutionRequest(String orgName, String contact, String phone,
+                                                       String email, String note, String password) {
             if (orgName == null || orgName.trim().isEmpty()) return false;
             if (password == null || password.isEmpty()) return false;
             String salt = PasswordUtil.generateSalt();
             String hash = PasswordUtil.hash(password, salt);
-            String sql = "INSERT INTO institution_requests (org_name, contact, phone, note, password, salt, status) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, 'pending')";
+            String sql = "INSERT INTO institution_requests (org_name, contact, phone, email, note, password, salt, status) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')";
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, orgName.trim());
                 ps.setString(2, contact == null ? "" : contact.trim());
                 ps.setString(3, phone == null ? "" : phone.trim());
-                ps.setString(4, note == null ? "" : note.trim());
-                ps.setString(5, hash);
-                ps.setString(6, salt);
+                ps.setString(4, email == null ? "" : email.trim());
+                ps.setString(5, note == null ? "" : note.trim());
+                ps.setString(6, hash);
+                ps.setString(7, salt);
                 return ps.executeUpdate() > 0;
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -1528,6 +1533,7 @@ public class DBUtil {
                     m.put("org_name", rs.getString("org_name"));
                     m.put("contact", rs.getString("contact"));
                     m.put("phone", rs.getString("phone"));
+                    m.put("email", rs.getString("email"));
                     m.put("note", rs.getString("note"));
                     m.put("status", rs.getString("status"));
                     m.put("review_note", rs.getString("review_note"));
@@ -1542,11 +1548,11 @@ public class DBUtil {
 
         /** 审批通过: 用申请中机构自设的密码哈希建机构, 仅返回生成的 org_code (密码不传递) */
         public static String approveInstitutionRequest(int id, String reviewer) {
-            // 1. 读取申请 (含机构自设的密码哈希与盐)
-            String orgName = null, contact = "", password = null, salt = null;
+            // 1. 读取申请 (含机构自设的密码哈希与盐、联系邮箱)
+            String orgName = null, contact = "", password = null, salt = null, email = "";
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(
-                         "SELECT org_name, contact, password, salt FROM institution_requests WHERE id = ? AND status = 'pending'")) {
+                         "SELECT org_name, contact, password, salt, email FROM institution_requests WHERE id = ? AND status = 'pending'")) {
                 ps.setInt(1, id);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
@@ -1554,6 +1560,7 @@ public class DBUtil {
                     contact = rs.getString("contact");
                     password = rs.getString("password");
                     salt = rs.getString("salt");
+                    email = rs.getString("email");
                 }
             } catch (SQLException e) { e.printStackTrace(); }
             if (orgName == null || password == null || password.isEmpty()) return null;
@@ -1567,12 +1574,13 @@ public class DBUtil {
                 conn.setAutoCommit(false);
                 // 写入机构 (复用申请时机构自设的密码哈希, 不重新生成)
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO institutions (org_name, org_code, password, salt, contact) VALUES (?, ?, ?, ?, ?)")) {
+                        "INSERT INTO institutions (org_name, org_code, password, salt, contact, email) VALUES (?, ?, ?, ?, ?, ?)")) {
                     ps.setString(1, orgName);
                     ps.setString(2, orgCode);
                     ps.setString(3, password);
                     ps.setString(4, salt);
                     ps.setString(5, contact);
+                    ps.setString(6, email == null ? "" : email);
                     ps.executeUpdate();
                 }
                 // 更新申请状态
@@ -3521,6 +3529,28 @@ public class DBUtil {
                 e.printStackTrace();
             }
             return cfg;
+        }
+
+        /** 解析用户端实际用于本次调用的 AI Key：用户自己设置的优先，否则回退到管理员预设 */
+        public static String resolveUserAIKey() {
+            if (currentUserApiKey != null && !currentUserApiKey.trim().isEmpty()) {
+                return currentUserApiKey.trim();
+            }
+            return getAIApiConfig().getOrDefault("api_key", "");
+        }
+
+        /** 设置并持久化用户端专属 AI Key（仅本人可见，跨 AI 面板共用） */
+        public static void setCurrentUserApiKey(String key) {
+            currentUserApiKey = key == null ? "" : key.trim();
+            if (currentUsername == null || currentUsername.isEmpty()) return;
+            String sql = "UPDATE users SET ai_api_key = ? WHERE username = ?";
+            try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, currentUserApiKey);
+                ps.setString(2, currentUsername);
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         }
 
         /** 通用 OpenAI 兼容对话调用（智谱 / 硅基流动等任意兼容服务均可） */

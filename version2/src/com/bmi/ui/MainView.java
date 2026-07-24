@@ -39,11 +39,14 @@ public class MainView {
         btnWater.getStyleClass().add("button-primary");
         Button btnMsg = new Button("消息中心");
         btnMsg.getStyleClass().add("button-primary");
+        Button btnApiKey = new Button("\ud83d\udd11 AI Key");
+        btnApiKey.getStyleClass().add("button-ghost");
+        btnApiKey.setOnAction(e -> openApiKeyDialog());
         Button btnLogout = new Button("退出登录");
         btnLogout.getStyleClass().add("button-accent");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        top.getChildren().addAll(user, spacer, btnWater, btnMsg, btnLogout);
+        top.getChildren().addAll(user, spacer, btnWater, btnMsg, btnApiKey, btnLogout);
         root.setTop(top);
 
         btnMsg.setOnAction(e -> NotificationCenter.show(DBUtil.currentUsername, false));
@@ -109,5 +112,39 @@ public class MainView {
 
     public BorderPane getRoot() {
         return root;
+    }
+
+    /** 用户端统一的 AI Key 设置入口：一次设置，三个 AI 面板（问答/饮食/菜谱）共用 */
+    private void openApiKeyDialog() {
+        Alert dlg = new Alert(Alert.AlertType.NONE);
+        dlg.setTitle("AI Key 设置");
+        dlg.setHeaderText("设置你的专属 AI Key");
+        Label hint = new Label("在此设置后，所有 AI 功能（AI 问答 / AI 饮食 / AI 菜谱）共用此 Key。\n" +
+                "留空则使用管理员预设 AI（无需自己的 key）。Key 仅保存在本机数据库，仅本人可见。");
+        hint.getStyleClass().add("hint");
+        hint.setWrapText(true);
+        TextField tf = new TextField(DBUtil.currentUserApiKey);
+        tf.setPromptText("粘贴你的 API Key（可选）");
+        tf.setPrefWidth(380);
+        VBox box = new VBox(10, hint, tf);
+        box.setPadding(new Insets(6));
+        dlg.getDialogPane().setContent(box);
+        ButtonType save = new ButtonType("保存", ButtonBar.ButtonData.OK_DONE);
+        ButtonType clear = new ButtonType("清空并使用预设", ButtonBar.ButtonData.OTHER);
+        ButtonType cancel = new ButtonType("取消", ButtonBar.ButtonData.CANCEL_CLOSE);
+        dlg.getDialogPane().getButtonTypes().addAll(save, clear, cancel);
+        dlg.showAndWait().ifPresent(bt -> {
+            if (bt == clear) {
+                DBUtil.setCurrentUserApiKey("");
+                alertMsg("已清空，将使用管理员预设 AI");
+            } else if (bt == save) {
+                DBUtil.setCurrentUserApiKey(tf.getText());
+                alertMsg("AI Key 已保存，三个 AI 面板将共用");
+            }
+        });
+    }
+
+    private void alertMsg(String m) {
+        new Alert(Alert.AlertType.INFORMATION, m, ButtonType.OK).showAndWait();
     }
 }

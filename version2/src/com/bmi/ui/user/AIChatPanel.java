@@ -18,7 +18,6 @@ public class AIChatPanel extends VBox {
     private final Map<Integer, String[]> historyMap = new HashMap<>();
     private final TextArea taAnswer = new TextArea();
     private final TextField tfQuestion = new TextField();
-    private final TextField tfApiKey = new TextField();
     private final Button btnSend;
 
     public AIChatPanel() {
@@ -60,22 +59,20 @@ public class AIChatPanel extends VBox {
         taAnswer.setStyle("-fx-font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; -fx-font-size: 13px;");
         taAnswer.setText("在上方输入你的健康问题，例如：\n" +
                 "• 我的 BMI 正常吗？\n• 最近体重上升怎么办？\n• 每天应该摄入多少热量？\n\n" +
-                "输入 API Key 可调用大模型；留空则使用本地健康规则回答。");
+                "在顶栏「AI Key」设置 Key 可调用大模型；留空则使用本地健康规则回答。");
 
-        HBox bottom = new HBox(10);
-        bottom.setAlignment(Pos.CENTER_LEFT);
-        Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("hint");
         Button btnClear = new Button("清空");
         btnClear.getStyleClass().add("button-ghost");
-        bottom.getChildren().addAll(lk, tfApiKey, btnClear);
-        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        input.getChildren().add(btnClear);
+
+        Label keyHint = new Label("\ud83d\udd11 AI Key 在顶栏「AI Key」统一设置；留空则使用管理员预设 AI（无需自己的 key）");
         keyHint.getStyleClass().add("hint");
 
         VBox rightCard = new VBox(10);
         rightCard.getStyleClass().add("card");
         Label t2 = new Label("AI 健康问答");
         t2.getStyleClass().add("card-title");
-        rightCard.getChildren().addAll(t2, input, new ScrollPane(taAnswer){{setFitToWidth(true);}}, bottom, keyHint);
+        rightCard.getChildren().addAll(t2, input, new ScrollPane(taAnswer){{setFitToWidth(true);}}, keyHint);
 
         HBox root = new HBox(14);
         root.getChildren().addAll(leftCard, rightCard);
@@ -112,8 +109,7 @@ public class AIChatPanel extends VBox {
         if (btnSend.isDisabled()) return;
         String question = tfQuestion.getText().trim();
         if (question.isEmpty()) { alert("请输入问题"); return; }
-        String localKey = tfApiKey.getText().trim();
-        String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
+        String apiKey = DBUtil.resolveUserAIKey();
         if (apiKey.isEmpty()) {
             String answer = generateLocalAnswer(question);
             DBUtil.saveAIChatRecord(DBUtil.currentUsername, question, answer);

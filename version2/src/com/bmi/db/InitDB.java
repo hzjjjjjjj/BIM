@@ -322,6 +322,7 @@ public class InitDB {
             "  password VARCHAR(255) NOT NULL DEFAULT ''," +
             "  salt VARCHAR(64) NOT NULL DEFAULT ''," +
             "  contact VARCHAR(50)," +
+            "  email VARCHAR(120)," +
             "  created_at TIMESTAMP DEFAULT NOW()" +
             ")");
         // 兼容旧库: 补登录字段
@@ -331,6 +332,13 @@ public class InitDB {
             System.out.println("  [OK] institutions 表 (含登录字段)");
         } catch (SQLException e) {
             System.out.println("  [INFO] institutions 登录字段检查: " + e.getMessage());
+        }
+        // 兼容旧库: 补邮箱字段 (审批通过后向其发送机构编号)
+        try {
+            execUpdate(conn, "ALTER TABLE institutions ADD COLUMN IF NOT EXISTS email VARCHAR(120)");
+            System.out.println("  [OK] institutions.email 字段已确认");
+        } catch (SQLException e) {
+            System.out.println("  [INFO] institutions.email 字段检查: " + e.getMessage());
         }
 
         // 机构维度病人主表 (归属某机构, 不持有登录账号 — 与个人 users 登录解耦)
@@ -381,6 +389,7 @@ public class InitDB {
             "  org_name VARCHAR(100) NOT NULL," +
             "  contact VARCHAR(50)," +
             "  phone VARCHAR(30)," +
+            "  email VARCHAR(120)," +
             "  note TEXT," +
             "  password VARCHAR(255) NOT NULL DEFAULT ''," +   // 机构自设密码的哈希(申请时设置)
             "  salt VARCHAR(64) NOT NULL DEFAULT ''," +
@@ -394,6 +403,10 @@ public class InitDB {
         try {
             execUpdate(conn, "ALTER TABLE institution_requests ADD COLUMN IF NOT EXISTS password VARCHAR(255) NOT NULL DEFAULT ''");
             execUpdate(conn, "ALTER TABLE institution_requests ADD COLUMN IF NOT EXISTS salt VARCHAR(64) NOT NULL DEFAULT ''");
+        } catch (SQLException e) { /* 已存在则忽略 */ }
+        // 兼容旧库: 补邮箱字段
+        try {
+            execUpdate(conn, "ALTER TABLE institution_requests ADD COLUMN IF NOT EXISTS email VARCHAR(120)");
         } catch (SQLException e) { /* 已存在则忽略 */ }
         System.out.println("  [OK] institution_requests 表");
 
@@ -497,6 +510,9 @@ public class InitDB {
         // 兼容已存在库：补代理列（校园/企业网经代理访问外网）
         try { execUpdate(conn, "ALTER TABLE ai_api_config ADD COLUMN IF NOT EXISTS proxy_host VARCHAR(100)"); } catch (SQLException ignore) {}
         try { execUpdate(conn, "ALTER TABLE ai_api_config ADD COLUMN IF NOT EXISTS proxy_port VARCHAR(10)"); } catch (SQLException ignore) {}
+
+        // 兼容已存在库：补用户专属 AI Key 列（用户端统一设置，跨 AI 面板共用）
+        try { execUpdate(conn, "ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_api_key VARCHAR(255)"); } catch (SQLException ignore) {}
 
         // AI 提示词模板表
         execUpdate(conn,

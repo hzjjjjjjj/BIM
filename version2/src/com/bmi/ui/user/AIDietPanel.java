@@ -16,7 +16,6 @@ import java.util.Map;
 public class AIDietPanel extends VBox {
     private final ComboBox<String> cbGoal = new ComboBox<>();
     private final TextField tfCustom = new TextField();
-    private final TextField tfApiKey = new TextField();
     private final TextArea taPlan = new TextArea();
     private final ListView<String> historyList = new ListView<>();
     private final ObservableList<String> historyItems = FXCollections.observableArrayList();
@@ -36,9 +35,8 @@ public class AIDietPanel extends VBox {
         input.setAlignment(Pos.CENTER_LEFT);
         Label lg = new Label("饮食目标:"); lg.getStyleClass().add("sub-title");
         Label lc = new Label("或自定义需求:"); lc.getStyleClass().add("sub-title");
-        Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("sub-title");
-        input.getChildren().addAll(lg, cbGoal, lc, tfCustom, lk, tfApiKey);
-        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        input.getChildren().addAll(lg, cbGoal, lc, tfCustom);
+        Label keyHint = new Label("\ud83d\udd11 AI Key 在顶栏「AI Key」统一设置；留空则使用管理员预设 AI（无需自己的 key）");
         keyHint.getStyleClass().add("hint");
 
         btnGen = new Button("生成推荐方案");
@@ -58,7 +56,7 @@ public class AIDietPanel extends VBox {
         taPlan.setStyle("-fx-font-family: 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif; -fx-font-size: 13px;");
         taPlan.setText("选择饮食目标或直接在「自定义需求」中输入你的饮食问题，例如:\n" +
                 "\"我有高血压，晚餐吃什么好？\"\n\"健身后需要补充什么？\"\n\"给我一份一周低碳食谱\"\n\n" +
-                "输入 API Key 可调用大模型生成更个性化方案；留空则使用本地推荐模板。");
+                "在顶栏「AI Key」设置 Key 可调用大模型生成更个性化方案；留空则使用本地推荐模板。");
         VBox centerCard = new VBox(10);
         centerCard.getStyleClass().add("card");
         Label t1 = new Label("推荐方案");
@@ -117,8 +115,7 @@ public class AIDietPanel extends VBox {
         String goal = cbGoal.getValue();
         String custom = tfCustom.getText().trim();
         String query = custom.isEmpty() ? goal : custom;
-        String localKey = tfApiKey.getText().trim();
-        String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
+        String apiKey = DBUtil.resolveUserAIKey();
         if (apiKey.isEmpty()) {
             String plan = generateLocalPlan(query);
             String full = buildHealthConstraintHeader() + "\n\n" + plan;

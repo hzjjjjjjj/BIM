@@ -14,7 +14,6 @@ import java.util.Map;
 /** AI 菜谱生成面板 — 自由输入需求, AI 给出菜谱 + 采购清单 */
 public class AICookbookPanel extends VBox {
     private final TextArea taRequest = new TextArea();
-    private final TextField tfApiKey = new TextField();
     private final TextArea taResult = new TextArea();
     private final ListView<String> historyList = new ListView<>();
     private final ObservableList<String> historyItems = FXCollections.observableArrayList();
@@ -32,20 +31,16 @@ public class AICookbookPanel extends VBox {
         Label lblHint = new Label("输入你的菜谱需求（食材、口味、人数、餐次等）：");
         lblHint.getStyleClass().add("sub-title");
 
-        HBox bottom = new HBox(10);
-        bottom.setAlignment(Pos.CENTER_LEFT);
-        Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("sub-title");
         btnGen = new Button("让 AI 生成菜谱");
         btnGen.getStyleClass().add("button-primary");
-        bottom.getChildren().addAll(lk, tfApiKey, btnGen);
-        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        Label keyHint = new Label("\ud83d\udd11 AI Key 在顶栏「AI Key」统一设置；留空则使用管理员预设 AI（无需自己的 key）");
         keyHint.getStyleClass().add("hint");
 
         VBox topCard = new VBox(10);
         topCard.getStyleClass().add("card");
         Label t0 = new Label("AI 菜谱生成");
         t0.getStyleClass().add("card-title");
-        topCard.getChildren().addAll(t0, lblHint, taRequest, bottom, keyHint);
+        topCard.getChildren().addAll(t0, lblHint, taRequest, btnGen, keyHint);
 
         taResult.setEditable(false);
         taResult.setWrapText(true);
@@ -54,7 +49,7 @@ public class AICookbookPanel extends VBox {
         taResult.setText("在上方输入你的菜谱需求，例如：\n" +
                 "• 我有鸡蛋、番茄、鸡胸肉，想做清淡口味的晚餐，2个人吃。\n" +
                 "• 帮我设计一份一周减脂午餐食谱。\n• 用土豆和牛肉做一道家常口味的菜，3个人。\n\n" +
-                "输入 API Key 可调用大模型生成更丰富的菜谱；留空则使用本地模板。");
+                "在顶栏「AI Key」设置 Key 可调用大模型生成更丰富的菜谱；留空则使用本地模板。");
         VBox centerCard = new VBox(10);
         centerCard.getStyleClass().add("card");
         Label t1 = new Label("菜谱与采购清单");
@@ -112,8 +107,7 @@ public class AICookbookPanel extends VBox {
     private void generateCookbook() {
         String request = taRequest.getText().trim();
         if (request.isEmpty()) { alert("请输入你的菜谱需求"); return; }
-        String localKey = tfApiKey.getText().trim();
-        String apiKey = localKey.isEmpty() ? DBUtil.getAIApiConfig().getOrDefault("api_key", "") : localKey;
+        String apiKey = DBUtil.resolveUserAIKey();
         if (apiKey.isEmpty()) {
             String result = generateLocalCookbook(request);
             taResult.setText(result);
@@ -175,7 +169,7 @@ public class AICookbookPanel extends VBox {
 
         sb.append("【采购清单】\n");
         sb.append("□ 鸡胸肉\n□ 番茄\n□ 鸡蛋\n□ 食用油\n□ 盐/生抽\n□ 主食（米饭/面条/馒头）\n");
-        sb.append("\n本菜谱由本地模板生成，仅供参考。输入 API Key 可获得更贴合你需求的菜谱。");
+        sb.append("\n本菜谱由本地模板生成，仅供参考。在顶栏「AI Key」设置 Key 可获得更贴合你需求的菜谱。");
         return sb.toString();
     }
 
