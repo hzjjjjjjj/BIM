@@ -444,6 +444,12 @@ public class InitDB {
             "  status VARCHAR(20) DEFAULT '已发布'" +
             ")");
         System.out.println("  [OK] health_articles 表");
+        // 审核字段迁移：驳回理由 / 审核人 / 审核时间（幂等，已存在则跳过）
+        try {
+            execUpdate(conn, "ALTER TABLE health_articles ADD COLUMN IF NOT EXISTS reviewer VARCHAR(50)");
+            execUpdate(conn, "ALTER TABLE health_articles ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP");
+            execUpdate(conn, "ALTER TABLE health_articles ADD COLUMN IF NOT EXISTS reject_reason TEXT");
+        } catch (SQLException ignore) {}
 
         // 消息模板表
         execUpdate(conn,

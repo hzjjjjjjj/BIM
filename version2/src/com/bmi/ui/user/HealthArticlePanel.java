@@ -125,7 +125,7 @@ public class HealthArticlePanel extends VBox {
         }
     }
 
-    /** 我的投稿：查看本人投稿及状态 */
+    /** 我的投稿：查看本人投稿及状态（已驳回可查看驳回理由） */
     private void showMySubmissions() {
         List<String[]> rows = DBUtil.getMyArticles(DBUtil.currentUsername, "user");
         TableView<String[]> t = new TableView<>();
@@ -133,7 +133,24 @@ public class HealthArticlePanel extends VBox {
                 colA("ID", 0, 60), colA("标题", 1, 240), colA("分类", 2, 110),
                 colA("状态", 3, 90), colA("提交时间", 4, 150));
         t.setItems(FXCollections.observableArrayList(rows));
-        VBox box = new VBox(10, new Label("我的投稿（状态：待审核/已发布/已驳回）"), t);
+        t.setRowFactory(tv -> {
+            TableRow<String[]> row = new TableRow<>();
+            row.setOnMouseClicked(ev -> {
+                if (!row.isEmpty() && ev.getClickCount() == 2) {
+                    viewMyArticle(Integer.parseInt(row.getItem()[0]));
+                }
+            });
+            return row;
+        });
+        Button btnView = new Button("查看详情");
+        btnView.getStyleClass().add("button-primary");
+        btnView.setDisable(true);
+        t.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> btnView.setDisable(n == null));
+        btnView.setOnAction(e -> {
+            String[] sel = t.getSelectionModel().getSelectedItem();
+            if (sel != null) viewMyArticle(Integer.parseInt(sel[0]));
+        });
+        VBox box = new VBox(10, new Label("我的投稿（状态：待审核/已发布/已驳回，双击行或选中后点「查看详情」）"), t, btnView);
         box.setPadding(new Insets(8));
         Alert d = new Alert(Alert.AlertType.INFORMATION);
         d.setTitle("我的投稿");
@@ -141,6 +158,34 @@ public class HealthArticlePanel extends VBox {
         d.getDialogPane().setContent(box);
         d.setResizable(true);
         d.showAndWait();
+    }
+
+    /** 查看本人投稿详情：已驳回时展示驳回理由 */
+    private void viewMyArticle(int id) {
+        Map<String, String> art = DBUtil.getHealthArticleById(id);
+        if (art == null || art.isEmpty()) { alert("文章不存在或已被删除"); return; }
+        String status = art.get("status") == null ? "" : art.get("status");
+        Label lblTitle = new Label(art.get("title") == null ? "" : art.get("title"));
+        lblTitle.setStyle("-fx-font-size:16px; -fx-font-weight:bold; -fx-text-fill:#1E6478;");
+        Label lblStatus = new Label("状态：" + status);
+        lblStatus.getStyleClass().add("hint");
+        TextArea ta = new TextArea(art.get("content") == null ? "" : art.get("content"));
+        ta.setWrapText(true); ta.setEditable(false); ta.setPrefSize(560, 320);
+        ta.setStyle("-fx-font-family:'Microsoft YaHei UI','Microsoft YaHei',sans-serif; -fx-font-size:13px;");
+        VBox content = new VBox(10, lblTitle, lblStatus, ta);
+        if ("已驳回".equals(status)) {
+            String reason = art.get("reject_reason");
+            Label lbReason = new Label("驳回理由：" + (reason == null || reason.isEmpty() ? "（未填写）" : reason));
+            lbReason.setStyle("-fx-text-fill:#C0392B; -fx-font-weight:bold;");
+            lbReason.setWrapText(true);
+            content.getChildren().add(lbReason);
+        }
+        Alert dlg = new Alert(Alert.AlertType.INFORMATION);
+        dlg.setTitle("我的投稿详情");
+        dlg.setHeaderText(null);
+        dlg.getDialogPane().setContent(content);
+        dlg.setResizable(true);
+        dlg.showAndWait();
     }
 
     private boolean confirmDialog(String title, GridPane content) {

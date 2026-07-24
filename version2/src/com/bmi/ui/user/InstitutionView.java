@@ -548,7 +548,16 @@ public class InstitutionView extends VBox {
         Dialog<ButtonType> d = new Dialog<>();
         d.setTitle("编辑文章 — " + art.get("title"));
         d.setHeaderText(null);
-        d.getDialogPane().setContent(new VBox(8, lbStatus, g));
+        VBox dlgBody = new VBox(8, lbStatus);
+        if ("已驳回".equals(art.get("status"))) {
+            String reject = art.get("reject_reason");
+            Label lbReject = new Label("驳回理由：" + (reject == null || reject.isEmpty() ? "（未填写）" : reject));
+            lbReject.setStyle("-fx-text-fill:#C0392B; -fx-font-weight:bold;");
+            lbReject.setWrapText(true);
+            dlgBody.getChildren().add(lbReject);
+        }
+        dlgBody.getChildren().add(g);
+        d.getDialogPane().setContent(dlgBody);
         d.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
         d.setResizable(true);
         d.showAndWait().ifPresent(bt -> {

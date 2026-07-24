@@ -6,6 +6,7 @@ import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.concurrent.Task;
 
 import java.util.List;
 import java.util.Map;
@@ -114,7 +115,7 @@ public class ArticleManagePanel extends VBox {
         }
     }
 
-    /** 审核选中投稿：approve=true 通过发布；false 填原因驳回。 */
+    /** 审核选中投稿：approve=true 通过发布；false 弹出驳回理由（支持 AI 生成）。 */
     private void reviewSelected(boolean approve) {
         String[] sel = pendingTable.getSelectionModel().getSelectedItem();
         if (sel == null) { warn("请先在审核队列中选择一条投稿"); return; }
@@ -126,18 +127,78 @@ public class ArticleManagePanel extends VBox {
                 alert("已通过并发布：" + sel[1]);
             } else err("操作失败");
         } else {
-            TextInputDialog d = new TextInputDialog();
-            d.setTitle("驳回投稿");
-            d.setHeaderText("请填写驳回原因（将记录并通知作者）");
-            d.showAndWait().ifPresent(reason -> {
-                if (reason.trim().isEmpty()) { warn("驳回原因不能为空"); return; }
-                if (DBUtil.rejectArticle(id, DBUtil.currentUsername, reason.trim())) {
-                    DBUtil.logAction("ADMIN", DBUtil.currentUsername, "驳回文章投稿", sel[1] + " 原因:" + reason);
-                    loadArticles();
-                    alert("已驳回：" + sel[1]);
-                } else err("操作失败");
-            });
+            rejectWithAI(id, sel);
         }
+    }
+
+    /** 驳回投稿：弹窗含「AI 生成驳回理由」按钮，基于文章正文生成可编辑的驳回理由 */
+    private void rejectWithAI(int id, String[] sel) {
+        TextArea taReason = new TextArea();
+        taReason.setWrapText(true);
+        taReason.setPrefRowCount(5);
+        taReason.setPromptText("可点「AI 生成驳回理由」自动生成，也可手动填写 / 修改");
+
+        Button btnGen = new Button("AI 生成驳回理由");
+        btnGen.getStyleClass().add("button-accent");
+        Label lbState = new Label("");
+        lbState.getStyleClass().add("hint");
+
+        btnGen.setOnAction(e -> {
+            Map<String, String> art = DBUtil.getHealthArticleById(id);
+            if (art == null || art.isEmpty()) { warn("文章不存在或已被删除"); return; }
+            String key = DBUtil.getAIApiConfig().getOrDefault("api_key", "");
+            if (key.isEmpty()) {
+                warn("管理员尚未配置 AI API Key，无法生成，请手动填写驳回理由。");
+                return;
+            }
+            btnGen.setDisable(true);
+            lbState.setText("AI 正在生成驳回理由…");
+            String title = art.get("title") == null ? "" : art.get("title");
+            String content = art.get("content") == null ? "" : art.get("content");
+            String prompt = "你是一位健康科普内容审核专家。请审阅下面这篇投稿文章，给出简明、专业、"
+                    + "建设性的「驳回理由」（文章暂不适合发布的原因及修改建议）。要求：1) 控制在150字以内；"
+                    + "2) 语气客观专业；3) 只输出驳回理由本身，不要标题或客套话。\n\n标题："
+                    + title + "\n正文：" + content;
+            Task<String> task = new Task<>() {
+                @Override
+                protected String call() throws Exception {
+                    return DBUtil.callOpenAIChat(key, prompt);
+                }
+                @Override
+                protected void succeeded() {
+                    taReason.setText(getValue());
+                    lbState.setText("已生成，可继续修改后点「驳回」");
+                    btnGen.setDisable(false);
+                }
+                @Override
+                protected void failed() {
+                    lbState.setText("AI 生成失败：" + (getMessage() != null ? getMessage() : "")
+                            + "，请手动填写");
+                    btnGen.setDisable(false);
+                }
+            };
+            new Thread(task).start();
+        });
+
+        HBox btnRow = new HBox(8, btnGen, lbState);
+        VBox box = new VBox(10, new Label("驳回原因（将记录并通知作者）"), taReason, btnRow);
+        box.setPadding(new Insets(8));
+        Dialog<ButtonType> d = new Dialog<>();
+        d.setTitle("驳回投稿");
+        d.setHeaderText(null);
+        d.getDialogPane().setContent(box);
+        d.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        d.setResizable(true);
+        d.showAndWait().ifPresent(bt -> {
+            if (bt != ButtonType.OK) return;
+            String reason = taReason.getText().trim();
+            if (reason.isEmpty()) { warn("驳回原因不能为空"); return; }
+            if (DBUtil.rejectArticle(id, DBUtil.currentUsername, reason)) {
+                DBUtil.logAction("ADMIN", DBUtil.currentUsername, "驳回文章投稿", sel[1] + " 原因:" + reason);
+                loadArticles();
+                alert("已驳回：" + sel[1]);
+            } else err("操作失败");
+        });
     }
 
     /** 审核时查看投稿正文，避免盲审 */

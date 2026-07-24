@@ -2802,7 +2802,7 @@ public class DBUtil {
         /** 根据 ID 获取文章正文 */
         public static Map<String, String> getHealthArticleById(int id) {
             Map<String, String> map = new HashMap<>();
-            String sql = "SELECT title, content, category, author, author_type, status, published_at FROM health_articles WHERE id = ?";
+            String sql = "SELECT title, content, category, author, author_type, status, published_at, reject_reason FROM health_articles WHERE id = ?";
             try (Connection conn = getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setInt(1, id);
@@ -2814,6 +2814,7 @@ public class DBUtil {
                     map.put("author", rs.getString("author"));
                     map.put("author_type", rs.getString("author_type"));
                     map.put("status", rs.getString("status"));
+                    map.put("reject_reason", rs.getString("reject_reason"));
                     map.put("published_at", new SimpleDateFormat("yyyy-MM-dd HH:mm").format(rs.getTimestamp("published_at")));
                 }
             } catch (SQLException e) {
