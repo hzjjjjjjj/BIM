@@ -14,7 +14,8 @@ import java.util.Map;
  * apiKey / model / endpoint 表单，调用 getAIApiConfig / saveAIApiConfig。
  */
 public class ApiConfigPanel extends VBox {
-    private final TextField tfApiKey = new TextField();
+    private final PasswordField pfApiKey = new PasswordField();
+    private final TextField tfApiKeyPlain = new TextField();
     private final TextField tfModel = new TextField("glm-4.7-flash");
     private final TextField tfVisionModel = new TextField("glm-4v-flash");
     private final TextField tfEndpoint = new TextField("https://open.bigmodel.cn/api/paas/v4");
@@ -36,10 +37,28 @@ public class ApiConfigPanel extends VBox {
         form.setHgap(12);
         form.setVgap(10);
         form.setPadding(new Insets(8, 4, 8, 4));
-        for (TextField t : new TextField[]{tfApiKey, tfModel, tfEndpoint, tfProxyHost, tfProxyPort}) t.getStyleClass().add("text-field");
-        tfApiKey.setPromptText("如 glm-4.7-flash 的 API Key");
+        for (TextInputControl t : new TextInputControl[]{pfApiKey, tfApiKeyPlain, tfModel, tfEndpoint, tfProxyHost, tfProxyPort}) t.getStyleClass().add("text-field");
+        pfApiKey.setPromptText("如 glm-4.7-flash 的 API Key");
+        tfApiKeyPlain.setPromptText("如 glm-4.7-flash 的 API Key");
         tfVisionModel.setPromptText("支持视觉的模型，如 glm-4v-flash / gpt-4o / qwen-vl");
-        form.addRow(0, new Label("API Key:"), tfApiKey);
+        // API Key 默认密文，勾选「显示」临时查看（演示防偷瞄）
+        tfApiKeyPlain.setManaged(false);
+        tfApiKeyPlain.setVisible(false);
+        CheckBox reveal = new CheckBox("\ud83d\udc41 显示");
+        reveal.selectedProperty().addListener((o, ov, nv) -> {
+            if (nv) {
+                tfApiKeyPlain.setText(pfApiKey.getText());
+                pfApiKey.setManaged(false); pfApiKey.setVisible(false);
+                tfApiKeyPlain.setManaged(true); tfApiKeyPlain.setVisible(true);
+            } else {
+                pfApiKey.setText(tfApiKeyPlain.getText());
+                tfApiKeyPlain.setManaged(false); tfApiKeyPlain.setVisible(false);
+                pfApiKey.setManaged(true); pfApiKey.setVisible(true);
+            }
+        });
+        HBox keyBox = new HBox(10, pfApiKey, tfApiKeyPlain, reveal);
+        keyBox.setAlignment(Pos.CENTER_LEFT);
+        form.addRow(0, new Label("API Key:"), keyBox);
         form.addRow(1, new Label("模型名称:"), tfModel);
         form.addRow(2, new Label("视觉模型:"), tfVisionModel);
         form.addRow(3, new Label("接口地址:"), tfEndpoint);
@@ -65,7 +84,8 @@ public class ApiConfigPanel extends VBox {
     private void loadConfig() {
         Map<String, String> cfg = DBUtil.getAIApiConfig();
         if (cfg != null) {
-            tfApiKey.setText(cfg.getOrDefault("api_key", ""));
+            pfApiKey.setText(cfg.getOrDefault("api_key", ""));
+            tfApiKeyPlain.setText(cfg.getOrDefault("api_key", ""));
             tfModel.setText(cfg.getOrDefault("model_name", "glm-4.7-flash"));
             tfVisionModel.setText(cfg.getOrDefault("vision_model", "glm-4v-flash"));
             tfEndpoint.setText(cfg.getOrDefault("endpoint_url", "https://open.bigmodel.cn/api/paas/v4"));
@@ -75,7 +95,7 @@ public class ApiConfigPanel extends VBox {
     }
 
     private void save() {
-        String apiKey = tfApiKey.getText().trim();
+        String apiKey = (pfApiKey.isVisible() ? pfApiKey.getText() : tfApiKeyPlain.getText()).trim();
         String modelName = tfModel.getText().trim();
         String visionModel = tfVisionModel.getText().trim();
         String endpoint = tfEndpoint.getText().trim();
