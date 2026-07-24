@@ -215,7 +215,7 @@ public class SideNav {
             double scrollable = contentH - viewportH;
             if (scrollable > 0 && viewportH > 0) {
                 double sign = Math.signum(e.getDeltaY());
-                double step = 50.0; // 每次滚轮滚动 50px，舒适一致
+                double step = 90.0; // 每次滚轮滚动 90px，提升主界面滚动速度（原 50px 偏慢）
                 double frac = sign * step / scrollable;
                 double newV = sp.getVvalue() - frac;
                 sp.setVvalue(Math.max(sp.getVmin(), Math.min(sp.getVmax(), newV)));
