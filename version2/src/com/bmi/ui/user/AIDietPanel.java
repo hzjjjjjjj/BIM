@@ -38,6 +38,8 @@ public class AIDietPanel extends VBox {
         Label lc = new Label("或自定义需求:"); lc.getStyleClass().add("sub-title");
         Label lk = new Label("API Key (可选):"); lk.getStyleClass().add("sub-title");
         input.getChildren().addAll(lg, cbGoal, lc, tfCustom, lk, tfApiKey);
+        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        keyHint.getStyleClass().add("hint");
 
         btnGen = new Button("生成推荐方案");
         btnGen.getStyleClass().add("button-primary");
@@ -48,7 +50,7 @@ public class AIDietPanel extends VBox {
         topCard.getStyleClass().add("card");
         Label t0 = new Label("AI 饮食推荐");
         t0.getStyleClass().add("card-title");
-        topCard.getChildren().addAll(t0, input, btnRow);
+        topCard.getChildren().addAll(t0, input, btnRow, keyHint);
 
         taPlan.setEditable(false);
         taPlan.setWrapText(true);

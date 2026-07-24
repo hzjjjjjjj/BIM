@@ -38,12 +38,14 @@ public class AICookbookPanel extends VBox {
         btnGen = new Button("让 AI 生成菜谱");
         btnGen.getStyleClass().add("button-primary");
         bottom.getChildren().addAll(lk, tfApiKey, btnGen);
+        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        keyHint.getStyleClass().add("hint");
 
         VBox topCard = new VBox(10);
         topCard.getStyleClass().add("card");
         Label t0 = new Label("AI 菜谱生成");
         t0.getStyleClass().add("card-title");
-        topCard.getChildren().addAll(t0, lblHint, taRequest, bottom);
+        topCard.getChildren().addAll(t0, lblHint, taRequest, bottom, keyHint);
 
         taResult.setEditable(false);
         taResult.setWrapText(true);

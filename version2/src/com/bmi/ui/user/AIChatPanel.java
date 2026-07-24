@@ -68,12 +68,14 @@ public class AIChatPanel extends VBox {
         Button btnClear = new Button("清空");
         btnClear.getStyleClass().add("button-ghost");
         bottom.getChildren().addAll(lk, tfApiKey, btnClear);
+        Label keyHint = new Label("留空则使用管理员预设 AI（无需自己的 key）");
+        keyHint.getStyleClass().add("hint");
 
         VBox rightCard = new VBox(10);
         rightCard.getStyleClass().add("card");
         Label t2 = new Label("AI 健康问答");
         t2.getStyleClass().add("card-title");
-        rightCard.getChildren().addAll(t2, input, new ScrollPane(taAnswer){{setFitToWidth(true);}}, bottom);
+        rightCard.getChildren().addAll(t2, input, new ScrollPane(taAnswer){{setFitToWidth(true);}}, bottom, keyHint);
 
         HBox root = new HBox(14);
         root.getChildren().addAll(leftCard, rightCard);
