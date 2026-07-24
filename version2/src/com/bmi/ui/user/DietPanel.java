@@ -148,7 +148,6 @@ public class DietPanel extends VBox {
         resultCard.getChildren().addAll(t3, lblResultHint, resultsBox, resultActions);
 
         getChildren().addAll(inputCard, resultCard, galleryCard, summaryCard);
-        VBox.setVgrow(galleryCard, Priority.ALWAYS);
         VBox.setVgrow(summaryCard, Priority.ALWAYS);
 
         btnAdd.setOnAction(e -> addDietRecord());
@@ -187,8 +186,7 @@ public class DietPanel extends VBox {
 
         ScrollPane scroll = new ScrollPane(galleryPane);
         scroll.setFitToWidth(true);
-        scroll.setPrefHeight(440);
-        VBox.setVgrow(scroll, Priority.ALWAYS);
+        scroll.setPrefHeight(300);
         scroll.setPannable(true); // 支持鼠标拖动滚动图库
         scroll.setStyle("-fx-background: transparent; -fx-border-width: 0;");
         // 滚轮滚动图库：固定步长、不与主内容区抢占
@@ -256,6 +254,8 @@ public class DietPanel extends VBox {
             iv.setFitWidth(116);
             iv.setFitHeight(116);
             iv.setPreserveRatio(true);
+            iv.setStyle("-fx-cursor: hand;");
+            iv.setOnMouseClicked(e -> { if (e.getClickCount() == 2) showImageZoom(fr.image()); });
             thumb.getChildren().add(iv);
         } else {
             Label ph = new Label("无图");
@@ -394,6 +394,8 @@ public class DietPanel extends VBox {
             iv.setFitWidth(40);
             iv.setFitHeight(40);
             iv.setPreserveRatio(true);
+            iv.setStyle("-fx-cursor: hand;");
+            iv.setOnMouseClicked(e -> { if (e.getClickCount() == 2) showImageZoom(bytes); });
             return iv;
         }
         return placeholderNode(40);
@@ -407,6 +409,24 @@ public class DietPanel extends VBox {
                 + "-fx-border-color:#C7D0DA; -fx-border-radius:6;");
         ph.getChildren().get(0).setStyle("-fx-text-fill:#8A97A5; -fx-font-size:10px;");
         return ph;
+    }
+
+    /** 放大查看图片：新窗口按 640 上限等比展示，双击缩略图触发。 */
+    private void showImageZoom(byte[] img) {
+        if (img == null || img.length == 0) return;
+        ImageView big = new ImageView(ImageUtil.byteArrayToImage(img));
+        big.setPreserveRatio(true);
+        big.setFitWidth(640);
+        big.setFitHeight(640);
+        StackPane root = new StackPane(big);
+        root.setPadding(new Insets(12));
+        root.setStyle("-fx-background-color:#ffffff;");
+        Stage st = new Stage();
+        st.setTitle("食物图片查看");
+        if (getScene() != null && getScene().getWindow() != null) st.initOwner(getScene().getWindow());
+        st.setScene(new Scene(root));
+        st.show();
+        st.toFront();
     }
 
     private void toggleSelectAll() {

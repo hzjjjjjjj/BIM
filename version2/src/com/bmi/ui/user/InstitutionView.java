@@ -483,7 +483,7 @@ public class InstitutionView extends VBox {
         });
     }
 
-    /** 我的投稿：查看本机构投稿及状态 */
+    /** 我的投稿：查看 + 编辑本机构投稿文章（已发布文章再编辑需重新审核） */
     private void showMySubmissions() {
         List<String[]> rows = DBUtil.getMyArticles(DBUtil.currentInstitutionName, "institution");
         TableView<String[]> t = new TableView<>();
@@ -491,7 +491,29 @@ public class InstitutionView extends VBox {
                 colA("ID", 0, 60), colA("标题", 1, 240), colA("分类", 2, 110),
                 colA("状态", 3, 90), colA("提交时间", 4, 150));
         t.setItems(FXCollections.observableArrayList(rows));
-        VBox box = new VBox(10, new Label("本机构投稿（状态：待审核/已发布/已驳回）"), t);
+
+        Button btnEdit = new Button("查看 / 编辑");
+        btnEdit.getStyleClass().add("button-primary");
+        btnEdit.setDisable(true);
+        t.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> btnEdit.setDisable(n == null));
+        btnEdit.setOnAction(e -> {
+            String[] sel = t.getSelectionModel().getSelectedItem();
+            if (sel != null) editArticle(Integer.parseInt(sel[0]), sel[3]);
+        });
+        // 双击行也可直接编辑
+        t.setRowFactory(tv -> {
+            TableRow<String[]> row = new TableRow<>();
+            row.setOnMouseClicked(ev -> {
+                if (!row.isEmpty() && ev.getClickCount() == 2) {
+                    editArticle(Integer.parseInt(row.getItem()[0]), row.getItem()[3]);
+                }
+            });
+            return row;
+        });
+
+        Label tip = new Label("本机构投稿（状态：待审核/已发布/已驳回，选中后点「查看/编辑」或双击行可编辑）");
+        tip.getStyleClass().add("muted");
+        VBox box = new VBox(10, tip, t, btnEdit);
         box.setPadding(new Insets(8));
         Alert d = new Alert(Alert.AlertType.INFORMATION);
         d.setTitle("我的投稿");
@@ -499,6 +521,50 @@ public class InstitutionView extends VBox {
         d.getDialogPane().setContent(box);
         d.setResizable(true);
         d.showAndWait();
+    }
+
+    /** 编辑本机构已投稿文章；已发布文章再次提交会自动退回「待审核」重新进入审核流程 */
+    private void editArticle(int id, String currentStatus) {
+        Map<String, String> art = DBUtil.getHealthArticleById(id);
+        if (art == null || art.isEmpty()) { alert("文章不存在或已被删除"); return; }
+        boolean published = "已发布".equals(art.get("status"));
+
+        TextField tfTitle = new TextField(art.get("title"));
+        TextField tfCategory = new TextField(art.get("category"));
+        TextArea ta = new TextArea(art.get("content"));
+        ta.setPrefRowCount(10); ta.setWrapText(true);
+
+        Label lbStatus = new Label("当前状态：" + art.get("status")
+                + (published ? "（编辑后需重新审核）" : ""));
+        lbStatus.getStyleClass().add("chip");
+
+        GridPane g = new GridPane();
+        g.setHgap(10); g.setVgap(8);
+        g.addRow(0, new Label("标题"), tfTitle);
+        g.addRow(1, new Label("分类"), tfCategory);
+        g.add(new Label("内容"), 0, 2);
+        g.add(ta, 1, 2);
+
+        Dialog<ButtonType> d = new Dialog<>();
+        d.setTitle("编辑文章 — " + art.get("title"));
+        d.setHeaderText(null);
+        d.getDialogPane().setContent(new VBox(8, lbStatus, g));
+        d.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        d.setResizable(true);
+        d.showAndWait().ifPresent(bt -> {
+            if (bt != ButtonType.OK) return;
+            String t = tfTitle.getText().trim();
+            if (t.isEmpty()) { alert("标题不能为空"); return; }
+            // 已发布文章再编辑 -> 重新进入审核(待审核)；其余情形保持待审核
+            String saveStatus = published ? "待审核" : art.get("status");
+            boolean ok = DBUtil.saveHealthArticle(id, t, ta.getText(), tfCategory.getText().trim(),
+                    DBUtil.currentInstitutionName, "institution", saveStatus);
+            if (ok) {
+                alert(published
+                        ? "已保存，文章已退回「待审核」，等待管理员重新审核。"
+                        : "已保存，等待管理员审核。");
+            } else alert("保存失败");
+        });
     }
 
     private TableColumn<String[], String> colA(String name, int idx, double w) {

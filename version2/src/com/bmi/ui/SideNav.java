@@ -224,20 +224,27 @@ public class SideNav {
         }
     }
 
-    /** 判断滚轮事件目标是否位于 sp 之内的某个「可滚动」嵌套 ScrollPane 中 */
+    /** 判断滚轮事件目标是否位于某个「可滚动」嵌套容器中
+     * （含 TableView/ListView 的内部滚动条，以及嵌套 ScrollPane）。
+     * 命中则让该容器自己处理滚轮，避免主内容区 ScrollPane 抢占——
+     * 否则表格区域滚轮会滚动整个页面，而非表格本身。 */
     private static boolean insideNestedScrollPane(ScrollPane outer, Object target) {
         if (!(target instanceof Node)) return false;
         Node n = (Node) target;
         while (n != null && n != outer) {
-            if (n instanceof ScrollPane) {
-                ScrollPane sp = (ScrollPane) n;
-                Node c = sp.getContent();
-                if (c != null) {
-                    double range = c.getBoundsInLocal().getHeight() - sp.getViewportBounds().getHeight();
-                    if (range > 1) return true;
-                }
-            }
+            if (hasScrollableVerticalBar(n)) return true;
             n = n.getParent();
+        }
+        return false;
+    }
+
+    /** 节点子树内是否存在「可滚动」的垂直滚动条（溢出且可见）。 */
+    private static boolean hasScrollableVerticalBar(Node n) {
+        for (Node c : n.lookupAll(".scroll-bar")) {
+            if (c instanceof ScrollBar && ((ScrollBar) c).getOrientation() == Orientation.VERTICAL) {
+                ScrollBar bar = (ScrollBar) c;
+                if (bar.isVisible() && bar.getMax() - bar.getMin() > 1e-6) return true;
+            }
         }
         return false;
     }

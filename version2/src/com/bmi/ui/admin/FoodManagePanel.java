@@ -183,8 +183,19 @@ public class FoodManagePanel extends VBox {
                 super.updateItem(item, empty);
                 if (empty || item == null || item.image() == null || item.image().length == 0) {
                     setGraphic(placeholderNode(56));
+                    setTooltip(null);
                 } else {
                     iv.setImage(ImageUtil.byteArrayToImage(item.image()));
+                    iv.setStyle("-fx-cursor: hand;");
+                    ImageView big = new ImageView(iv.getImage());
+                    big.setFitWidth(320);
+                    big.setFitHeight(320);
+                    big.setPreserveRatio(true);
+                    Tooltip tip = new Tooltip();
+                    tip.setGraphic(big);
+                    tip.setStyle("-fx-background-color:#ffffff; -fx-border-color:#C7D0DA;");
+                    tip.setShowDelay(javafx.util.Duration.millis(250));
+                    setTooltip(tip);
                     setGraphic(iv);
                 }
             }
@@ -200,6 +211,7 @@ public class FoodManagePanel extends VBox {
         ph.getChildren().get(0).setStyle("-fx-text-fill:#8A97A5; -fx-font-size:10px;");
         return ph;
     }
+
 
     private void editFood(int id) {
         DBUtil.FoodRow existing = null;
