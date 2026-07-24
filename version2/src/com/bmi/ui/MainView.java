@@ -7,6 +7,7 @@ import com.bmi.ui.user.AICookbookPanel;
 import com.bmi.ui.user.AIDietPanel;
 import com.bmi.ui.user.AchievementPanel;
 import com.bmi.ui.user.AnalysisPanel;
+import com.bmi.ui.user.BodyShape3DPanel;
 import com.bmi.ui.user.DataInputPanel;
 import com.bmi.ui.user.DietPanel;
 import com.bmi.ui.user.GoalPlanPanel;
@@ -63,7 +64,8 @@ public class MainView {
                         tab("数据录入", new DataInputPanel()),
                         tab("历史趋势", new HistoryTrendPanel()),
                         tab("分析评估", new AnalysisPanel()),
-                        tab("预测分析", new PredictionPanel()))),
+                        tab("预测分析", new PredictionPanel()),
+                        tab("3D 体型", new BodyShape3DPanel()))),
                 new SideNav.NavSection("饮食 · 饮水", Arrays.asList(
                         tab("饮水记录", new WaterPanel()),
                         tab("饮食管理", new DietPanel()))),
@@ -123,10 +125,30 @@ public class MainView {
                 "留空则使用管理员预设 AI（无需自己的 key）。Key 仅保存在本机数据库，仅本人可见。");
         hint.getStyleClass().add("hint");
         hint.setWrapText(true);
+        Label hideTip = new Label("（出于安全，Key 默认以密文显示，勾选「显示」可临时查看）");
+        hideTip.getStyleClass().add("hint");
+        PasswordField pf = new PasswordField();
+        pf.setText(DBUtil.currentUserApiKey);
+        pf.setPromptText("粘贴你的 API Key（可选）");
+        pf.setPrefWidth(380);
         TextField tf = new TextField(DBUtil.currentUserApiKey);
         tf.setPromptText("粘贴你的 API Key（可选）");
         tf.setPrefWidth(380);
-        VBox box = new VBox(10, hint, tf);
+        tf.setManaged(false);
+        tf.setVisible(false);
+        CheckBox reveal = new CheckBox("\ud83d\udc41 显示 Key");
+        reveal.selectedProperty().addListener((o, ov, nv) -> {
+            if (nv) {
+                tf.setText(pf.getText());
+                pf.setManaged(false); pf.setVisible(false);
+                tf.setManaged(true); tf.setVisible(true);
+            } else {
+                pf.setText(tf.getText());
+                tf.setManaged(false); tf.setVisible(false);
+                pf.setManaged(true); pf.setVisible(true);
+            }
+        });
+        VBox box = new VBox(10, hint, hideTip, pf, tf, reveal);
         box.setPadding(new Insets(6));
         dlg.getDialogPane().setContent(box);
         ButtonType save = new ButtonType("保存", ButtonBar.ButtonData.OK_DONE);
@@ -138,7 +160,8 @@ public class MainView {
                 DBUtil.setCurrentUserApiKey("");
                 alertMsg("已清空，将使用管理员预设 AI");
             } else if (bt == save) {
-                DBUtil.setCurrentUserApiKey(tf.getText());
+                String val = reveal.isSelected() ? tf.getText() : pf.getText();
+                DBUtil.setCurrentUserApiKey(val);
                 alertMsg("AI Key 已保存，三个 AI 面板将共用");
             }
         });
