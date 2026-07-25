@@ -1,0 +1,148 @@
+/* ============================================================
+   BMI 体质评估与预测系统 v5 — 全局设计令牌 (Botanical Calm)
+   植物疗愈 · 健康科技风：深常绿侧栏 + 暖奶油画布 + 草本绿/杏橘
+   ============================================================ */
+
+:root {
+  /* —— 画布与表面 —— */
+  --bg: #fbf9f5;
+  --surface: #ffffff;
+  --surface-2: #f4f1ea;
+  --surface-3: #ece7dc;
+
+  /* —— 侧边栏（深常绿） —— */
+  --ink: #10211b;
+  --ink-2: #183026;
+  --ink-3: #214034;
+  --ink-line: rgba(255, 255, 255, 0.08);
+  --ink-text: rgba(255, 255, 255, 0.92);
+  --ink-text-soft: rgba(255, 255, 255, 0.55);
+
+  /* —— 文本 —— */
+  --text: #1a2420;
+  --text-soft: #5d6862;
+  --text-faint: #8b938d;
+
+  /* —— 描边 —— */
+  --border: #e7e1d5;
+  --border-strong: #d8d0c0;
+
+  /* —— 品牌色 —— */
+  --primary: #1f8a6d;        /* 草本绿 */
+  --primary-d: #146b53;
+  --primary-l: #e6f4ee;
+  --primary-ll: #f1f9f5;
+
+  --accent: #ff7a5c;         /* 杏橘珊瑚 */
+  --accent-d: #e85f3f;
+  --accent-l: #ffe9e2;
+
+  --gold: #f4b740;           /* 目标金 */
+  --gold-l: #fdf1d6;
+
+  --danger: #e5484d;
+  --danger-l: #fbe6e6;
+  --warn: #e8902b;
+  --warn-l: #fcefd9;
+  --info: #3b82c4;
+  --info-l: #e7f1f9;
+
+  /* —— 间距标尺 —— */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px; --s-9: 56px;
+
+  /* —— 圆角 —— */
+  --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-xl: 28px; --r-pill: 999px;
+
+  /* —— 阴影（柔和分层，非通用） —— */
+  --sh-1: 0 1px 2px rgba(26, 36, 32, 0.04), 0 1px 3px rgba(26, 36, 32, 0.06);
+  --sh-2: 0 4px 14px -6px rgba(26, 36, 32, 0.12), 0 2px 6px -4px rgba(26, 36, 32, 0.08);
+  --sh-3: 0 18px 40px -18px rgba(20, 50, 40, 0.28), 0 6px 16px -10px rgba(20, 50, 40, 0.16);
+  --sh-pop: 0 24px 60px -20px rgba(16, 33, 27, 0.4);
+
+  /* —— 缓动 —— */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+
+  /* —— 字体 —— */
+  --font-display: 'Sora', 'Manrope', system-ui, sans-serif;
+  --font-body: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+a { color: var(--primary-d); text-decoration: none; }
+
+/* —— 可访问性：焦点环 —— */
+:focus-visible {
+  outline: 2.5px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* —— 滚动条 —— */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: content-box; }
+
+/* —— 通用卡片 —— */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+}
+
+/* —— 减弱动效偏好 —— */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* —— 工具类 —— */
+.muted { color: var(--text-soft); }
+.faint { color: var(--text-faint); }
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.svg-icon { width: 1.15em; height: 1.15em; display: inline-block; vertical-align: -0.18em; }
