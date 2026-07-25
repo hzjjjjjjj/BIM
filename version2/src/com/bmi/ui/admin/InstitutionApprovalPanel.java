@@ -1,6 +1,7 @@
 package com.bmi.ui.admin;
 
 import com.bmi.db.DBUtil;
+import com.bmi.util.MailUtil;
 
 import javafx.geometry.*;
 import javafx.scene.control.*;
@@ -53,8 +54,8 @@ public class InstitutionApprovalPanel extends VBox {
     }
 
     private void buildTable() {
-        String[] cols = {"ID", "机构名称", "联系人", "电话", "申请说明", "提交时间", "状态"};
-        String[] keys = {"id", "org_name", "contact", "phone", "note", "created_at", "status"};
+        String[] cols = {"ID", "机构名称", "联系人", "电话", "邮箱", "申请说明", "提交时间", "状态"};
+        String[] keys = {"id", "org_name", "contact", "phone", "email", "note", "created_at", "status"};
         for (int i = 0; i < cols.length; i++) {
             final int idx = i;
             TableColumn<Map<String, Object>, String> c = new TableColumn<>(cols[i]);
@@ -83,7 +84,26 @@ public class InstitutionApprovalPanel extends VBox {
             refresh();
             return;
         }
-        showCredentials((String) row.get("org_name"), code);
+        // 审批通过：自动向机构所留邮箱发送机构编号（不增加管理员负担；发送失败不影响审批结果）
+        String orgName = (String) row.get("org_name");
+        Object emailObj = row.get("email");
+        String email = emailObj == null ? "" : emailObj.toString().trim();
+        // 机构申请表单已强制填写并校验邮箱格式, 此处邮箱即为有效地址;
+        // 仅保留"发送失败/未启用"的兜底提示, 不影响审批结果。
+        String mailMsg;
+        try {
+            boolean sent = MailUtil.sendInstitutionCodeEmail(email, orgName, code);
+            if (sent) {
+                mailMsg = "机构编号已自动发送至邮箱：" + email;
+            } else {
+                mailMsg = "邮件发送未成功（邮件服务未启用或发送异常，详情见日志）。\n"
+                        + "请线下将机构编号告知机构：" + email;
+            }
+        } catch (Throwable t) {
+            DBUtil.logError("InstitutionApprovalPanel.approveSelected.mail", t);
+            mailMsg = "发送邮件时发生异常（" + t.getMessage() + "），请线下将机构编号告知机构。";
+        }
+        showCredentials(orgName, code, mailMsg);
         refresh();
     }
 
@@ -104,20 +124,20 @@ public class InstitutionApprovalPanel extends VBox {
         refresh();
     }
 
-    private void showCredentials(String orgName, String code) {
+    private void showCredentials(String orgName, String code, String mailMsg) {
         Dialog<Void> d = new Dialog<>();
         d.setTitle("审批通过 — 机构编码");
         d.setHeaderText("机构「" + orgName + "」已创建");
         TextArea ta = new TextArea("机构名称: " + orgName + "\n机构编码: " + code
                 + "\n\n密码由机构申请时自行设置, 无需本系统下发。"
-                + "请线下将该编码告知机构, 机构用「编码 + 其设置的密码」登录。");
+                + "机构可用「编码 + 其设置的密码」登录。\n\n【邮件通知】\n" + mailMsg);
         ta.setEditable(false);
         ta.setWrapText(true);
-        ta.setPrefSize(420, 140);
+        ta.setPrefSize(440, 200);
         VBox box = new VBox(ta);
         box.setPadding(new Insets(10));
         d.getDialogPane().setContent(box);
-        d.getDialogPane().setPrefSize(460, 200);
+        d.getDialogPane().setPrefSize(480, 260);
         d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         d.showAndWait();
     }

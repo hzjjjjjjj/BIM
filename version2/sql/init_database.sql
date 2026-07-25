@@ -70,6 +70,7 @@ CREATE TABLE institutions (
     password VARCHAR(255) NOT NULL DEFAULT '',         -- SHA-256 加盐哈希
     salt VARCHAR(64) NOT NULL DEFAULT '',
     contact VARCHAR(50),
+    email VARCHAR(120),                                -- 机构联系邮箱 (审批通过后向其发送机构编号)
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -101,6 +102,7 @@ CREATE TABLE institution_requests (
     org_name VARCHAR(100) NOT NULL,
     contact VARCHAR(50),
     phone VARCHAR(30),
+    email VARCHAR(120),                                -- 机构联系邮箱 (审批通过后向其发送机构编号)
     note TEXT,
     password VARCHAR(255) NOT NULL DEFAULT '',         -- 机构自设密码的 SHA-256 加盐哈希
     salt VARCHAR(64) NOT NULL DEFAULT '',

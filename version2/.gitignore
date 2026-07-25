@@ -16,3 +16,4 @@ create_excel_*.py
 
 # 日志 / 本地配置
 *.log
+mail.properties

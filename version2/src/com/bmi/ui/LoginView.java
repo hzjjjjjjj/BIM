@@ -238,20 +238,24 @@ public class LoginView {
 
         VBox loginPane = buildInstitutionLoginPane();
         VBox applyPane = buildInstitutionApplyPane();
+        // 用滚动面板包裹申请表单, 字段较多时也能看到底部「确认提交申请」按钮
+        ScrollPane applyScroll = new ScrollPane(applyPane);
+        applyScroll.setFitToWidth(true);
+        applyScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
 
         tg.selectedToggleProperty().addListener((ob, o, n) -> {
             boolean login = n == tbLogin;
             loginPane.setVisible(login);
             loginPane.setManaged(login);
-            applyPane.setVisible(!login);
-            applyPane.setManaged(!login);
+            applyScroll.setVisible(!login);
+            applyScroll.setManaged(!login);
             tbLogin.getStyleClass().removeAll("toggle-on", "toggle-off");
             tbApply.getStyleClass().removeAll("toggle-on", "toggle-off");
             tbLogin.getStyleClass().add(login ? "toggle-on" : "toggle-off");
             tbApply.getStyleClass().add(login ? "toggle-off" : "toggle-on");
         });
 
-        box.getChildren().addAll(switchBar, loginPane, applyPane);
+        box.getChildren().addAll(switchBar, loginPane, applyScroll);
         return box;
     }
 
@@ -281,6 +285,8 @@ public class LoginView {
         tfContact.setPromptText("联系人");
         TextField tfPhone = new TextField();
         tfPhone.setPromptText("联系电话");
+        TextField tfEmail = new TextField();
+        tfEmail.setPromptText("联系邮箱 (审批通过后向其发送机构编号)");
         TextArea taNote = new TextArea();
         taNote.setPromptText("申请说明 (为何需要入驻, 如所属科室/用途)");
         taNote.setPrefRowCount(2);
@@ -288,35 +294,91 @@ public class LoginView {
         tfPwd.setPromptText("设置登录密码 (至少6位)");
         PasswordField tfPwd2 = new PasswordField();
         tfPwd2.setPromptText("确认密码");
-        Button btn = new Button("提交申请");
+        Button btn = new Button("确认提交申请");
         btn.getStyleClass().add("button-accent");
         btn.setMaxWidth(Double.MAX_VALUE);
-        Label hint = new Label("提交后由管理员审批; 通过后向你下发机构编码, 请用「编码 + 你设置的密码」登录");
+        Label hint = new Label("提交后由管理员审批; 通过后会自动将机构编号发送至您填写的邮箱, 请用「编号 + 您设置的密码」登录");
         hint.getStyleClass().add("hint");
 
         btn.setOnAction(e -> {
-            String name = tfName.getText();
-            String pwd = tfPwd.getText();
-            String pwd2 = tfPwd2.getText();
-            if (name == null || name.trim().isEmpty()) {
-                alert(Alert.AlertType.WARNING, "提示", "请填写机构名称");
-                return;
+            try {
+                String name = tfName.getText() == null ? "" : tfName.getText().trim();
+                String contact = tfContact.getText() == null ? "" : tfContact.getText().trim();
+                String phone = tfPhone.getText() == null ? "" : tfPhone.getText().trim();
+                String email = tfEmail.getText() == null ? "" : tfEmail.getText().trim();
+                String note = taNote.getText() == null ? "" : taNote.getText().trim();
+                String pwd = tfPwd.getText() == null ? "" : tfPwd.getText();
+                String pwd2 = tfPwd2.getText() == null ? "" : tfPwd2.getText();
+
+                // 统一校验（电话/邮箱格式 + 必填项），返回错误信息或 null
+                String err = validateInstitutionApply(name, contact, phone, email, pwd, pwd2);
+                if (err != null) {
+                    alert(Alert.AlertType.WARNING, "提示", err);
+                    return;
+                }
+                confirmAndSubmitInstitutionRequest(name, contact, phone, email, note, pwd);
+            } catch (Exception ex) {
+                // 任何意外异常都不应让界面崩溃, 记录日志并友好提示
+                DBUtil.logError("LoginView.buildInstitutionApplyPane.submit", ex);
+                alert(Alert.AlertType.ERROR, "提交异常", "提交过程中发生异常: " + ex.getMessage() + "\n请稍后重试");
             }
-            if (pwd == null || pwd.length() < 6) {
-                alert(Alert.AlertType.WARNING, "提示", "密码至少 6 位");
-                return;
-            }
-            if (!pwd.equals(pwd2)) {
-                alert(Alert.AlertType.WARNING, "提示", "两次密码不一致");
-                return;
-            }
-            doSubmitInstitutionRequest(name, tfContact.getText(), tfPhone.getText(), taNote.getText(), pwd);
         });
         p.getChildren().addAll(hint, labeled("机构名称:", tfName),
                 labeled("联系人:", tfContact), labeled("联系电话:", tfPhone),
+                labeled("联系邮箱:", tfEmail),
                 new Label("申请说明:"), taNote,
                 labeled("登录密码:", tfPwd), labeled("确认密码:", tfPwd2), btn);
         return p;
+    }
+
+    /** 机构入驻申请校验：返回错误提示文本（无错误返回 null）。电话/邮箱格式均做校验。 */
+    private String validateInstitutionApply(String name, String contact, String phone,
+                                           String email, String pwd, String pwd2) {
+        if (name.isEmpty()) return "请填写机构名称";
+        if (contact.isEmpty()) return "请填写联系人";
+        if (phone.isEmpty()) return "请填写联系电话";
+        if (!isValidPhone(phone)) return "联系电话格式不正确 (应为 7-15 位数字, 可含 +、-、空格、括号)";
+        if (email.isEmpty()) return "请填写联系邮箱 (审批通过后向其发送机构编号)";
+        if (!isValidEmail(email)) return "邮箱格式不正确, 请检查后重新填写";
+        if (pwd.isEmpty() || pwd.length() < 6) return "密码至少 6 位";
+        if (!pwd.equals(pwd2)) return "两次密码不一致";
+        return null;
+    }
+
+    /** 电话格式：去除非数字后 7-15 位, 且整体仅含数字/+/空格/()- */
+    private boolean isValidPhone(String p) {
+        try {
+            String digits = p.replaceAll("\\D", "");
+            if (digits.length() < 7 || digits.length() > 15) return false;
+            return p.matches("[0-9+\\-()\\s]+");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 邮箱格式：标准 用户名@域名.后缀 */
+    private boolean isValidEmail(String e) {
+        try {
+            return e.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    /** 提交前的二次确认（提供明确的「确认」按钮, 避免误提交） */
+    private void confirmAndSubmitInstitutionRequest(String name, String contact, String phone,
+                                                    String email, String note, String pwd) {
+        Alert cf = new Alert(Alert.AlertType.CONFIRMATION,
+                "确认提交以下机构入驻申请?\n\n机构名称: " + name
+                        + "\n联系人: " + contact + "\n联系电话: " + phone + "\n联系邮箱: " + email
+                        + "\n\n提交后状态为「待审批」, 通过后机构编号将自动发送至上述邮箱。",
+                ButtonType.OK, ButtonType.CANCEL);
+        cf.setTitle("确认提交");
+        cf.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.OK) {
+                doSubmitInstitutionRequest(name, contact, phone, email, note, pwd);
+            }
+        });
     }
 
     private HBox labeled(String text, Control c) {
@@ -343,11 +405,11 @@ public class LoginView {
         }
     }
 
-    private void doSubmitInstitutionRequest(String name, String contact, String phone, String note, String pwd) {
-        if (DBUtil.submitInstitutionRequest(name, contact, phone, note, pwd)) {
+    private void doSubmitInstitutionRequest(String name, String contact, String phone, String email, String note, String pwd) {
+        if (DBUtil.submitInstitutionRequest(name, contact, phone, email, note, pwd)) {
             alert(Alert.AlertType.INFORMATION, "已提交",
-                    "入驻申请已提交, 状态: 待审批。\n请等待管理员审核, 通过后将以线下方式向您下发机构编码;"
-                            + "届时请用「编码 + 你刚才设置的密码」登录。");
+                    "入驻申请已提交, 状态: 待审批。\n请等待管理员审核, 通过后系统会自动将机构编号发送至您填写的邮箱 ("
+                            + email + ");\n届时请用「编号 + 您刚才设置的密码」登录。");
         } else {
             alert(Alert.AlertType.ERROR, "提交失败", "申请提交失败, 请稍后重试");
         }

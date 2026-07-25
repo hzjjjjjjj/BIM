@@ -1,0 +1,21 @@
+# BMI system mail configuration (TEMPLATE)
+# Copy this file to "mail.properties" and fill in your SMTP settings.
+# The real mail.properties is gitignored — never commit your credentials.
+#
+# Auto-sends the institution code to the email provided at registration, after admin approval.
+#
+# QQ mailbox:   host=smtp.qq.com   port=587  useTLS=true
+# 163 mailbox:  host=smtp.163.com  port=587  useTLS=true
+# SSL 465:      host=smtp.qq.com   port=465  useTLS=false
+#
+# IMPORTANT: mail.smtp.pass is the email AUTHORIZATION CODE, not the login password.
+# Enable SMTP service in your mail provider's web settings to get one.
+
+mail.enabled=false
+mail.smtp.host=
+mail.smtp.port=587
+mail.smtp.user=
+mail.smtp.pass=
+mail.from=
+mail.useTLS=true
+mail.timeout=10000

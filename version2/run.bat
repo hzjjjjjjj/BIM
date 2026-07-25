@@ -6,6 +6,18 @@ echo ========================================
 echo.
 
 set JDK_PATH=C:\Users\huang\Desktop\jdk\bin
+REM 若写死路径不存在，自动回退 JAVA_HOME，再回退 PATH 中的 javac
+if not exist "%JDK_PATH%\javac.exe" (
+    if defined JAVA_HOME set "JDK_PATH=%JAVA_HOME%\bin"
+)
+if not exist "%JDK_PATH%\javac.exe" (
+    for /f "delims=" %%i in ('where javac 2^>nul') do (
+        if not defined JDK_DETECTED (
+            set "JDK_PATH=%%~dpi"
+            set "JDK_DETECTED=1"
+        )
+    )
+)
 set LIB=lib
 set SRC=src
 set OUT=out
@@ -38,6 +50,6 @@ echo [3/3] 复制样式表...
 copy /Y "%SRC%\style.css" "%OUT%\style.css" >nul
 
 echo 启动系统...
-"%JDK_PATH%\java" --module-path "%MODPATH%;%OUT%" -m com.bmi.app/com.bmi.App
+"%JDK_PATH%\java" -Dprism.verbose=true -Dsun.java2d.d3d=true --module-path "%MODPATH%;%OUT%" -m com.bmi.app/com.bmi.App
 
 pause

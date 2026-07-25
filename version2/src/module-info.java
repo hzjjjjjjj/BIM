@@ -8,6 +8,7 @@ module com.bmi.app {
     // JavaFX
     requires javafx.controls;
     requires javafx.fxml;
+    requires javafx.graphics;   // 3D 体型渲染: Sphere/Cylinder/SubScene/PerspectiveCamera/PhongMaterial
 
     // JDK 标准库
     requires java.sql;      // DBUtil 使用 JDBC
